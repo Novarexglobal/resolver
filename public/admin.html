@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>RESOLVER · Administración</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#1d4ed8">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">RESOLVER<small>Panel de administración</small></div>
+    <div class="row">
+      <span class="muted" id="admin-who"></span>
+      <a href="/">Volver a la app</a>
+      <button type="button" class="secondary small hidden" id="admin-logout">Salir</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="admin-login" class="hidden">
+      <div class="auth-wrap">
+        <div class="card">
+          <h2>Acceso de administración</h2>
+          <form id="admin-login-form" novalidate>
+            <div style="margin-bottom:12px">
+              <label for="admin-user">Usuario</label>
+              <input id="admin-user" autocomplete="username" required>
+            </div>
+            <div style="margin-bottom:12px">
+              <label for="admin-pass">Contraseña</label>
+              <input id="admin-pass" type="password" autocomplete="current-password" required>
+            </div>
+            <div id="admin-login-error" class="alert error hidden" role="alert"></div>
+            <button type="submit">Entrar</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="admin-app" class="hidden">
+      <nav class="admin-nav" aria-label="Administración">
+        <button type="button" class="secondary" data-panel="resumen">Resumen</button>
+        <button type="button" class="secondary" data-panel="grupos">Grupos</button>
+        <button type="button" class="secondary" data-panel="importar">Cargar</button>
+        <button type="button" class="secondary" data-panel="historial">Historial</button>
+        <button type="button" class="secondary" data-panel="manual">Publicación manual</button>
+        <button type="button" class="secondary" data-panel="publicaciones">Publicaciones</button>
+        <button type="button" class="secondary" data-panel="usuarios">Usuarios</button>
+        <button type="button" class="secondary" data-panel="categorias">Categorías</button>
+        <button type="button" class="secondary" data-panel="reportes">Reportes</button>
+      </nav>
+      <div id="panel"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/admin.js" type="module"></script>
+</body>
+</html>

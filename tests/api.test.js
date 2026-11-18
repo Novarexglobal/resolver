@@ -1,0 +1,192 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createServer } from 'node:http';
+import { Store } from '../src/store.js';
+import { createApp } from '../src/server.js';
+import { ROLES, hashPassword } from '../src/auth.js';
+import { config } from '../src/config.js';
+
+const dir = mkdtempSync(join(tmpdir(), 'resolver-test-'));
+const store = new Store(join(dir, 'db.json'));
+const server = createServer(createApp(store, { ...config, publicDir: config.publicDir }));
+let base;
+const ADMIN_PASS = 'clave-del-admin-123';
+const USER_PASS = 'clave-del-usuario-1';
+
+before(async () => {
+  store.insert('users', { username: 'lemuel', password_hash: hashPassword(ADMIN_PASS), role: ROLES.SUPERADMIN, disabled: false });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  base = `http://127.0.0.1:${server.address().port}`;
+});
+
+after(() => {
+  server.close();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+async function call(method, path, { body, cookie } = {}) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (cookie) headers.Cookie = cookie;
+  const res = await fetch(base + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+  const setCookie = res.headers.get('set-cookie');
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch { /* no es JSON */ }
+  return { status: res.status, json, text, cookie: setCookie ? setCookie.split(';')[0] : null, headers: res.headers };
+}
+
+let userCookie;
+let adminCookie;
+let groupId;
+
+test('sin sesión no hay acceso a la búsqueda ni a la administración', async () => {
+  assert.equal((await call('GET', '/api/search?days=7')).status, 401);
+  assert.equal((await call('GET', '/api/admin/overview')).status, 401);
+});
+
+test('registro de usuario normal, sin poder crear superadministrador', async () => {
+  const r = await call('POST', '/api/auth/register', { body: { username: 'vendedor_1', password: USER_PASS } });
+  assert.equal(r.status, 201);
+  assert.equal(r.json.user.role, ROLES.USER);
+  userCookie = r.cookie;
+  const dup = await call('POST', '/api/auth/register', { body: { username: 'vendedor_1', password: USER_PASS } });
+  assert.equal(dup.status, 409);
+});
+
+test('usuario normal no entra al panel de administración', async () => {
+  const r = await call('GET', '/api/admin/overview', { cookie: userCookie });
+  assert.equal(r.status, 403);
+});
+
+test('inicio de sesión del superadministrador y rechazo de contraseña incorrecta', async () => {
+  const bad = await call('POST', '/api/auth/login', { body: { username: 'lemuel', password: 'equivocada-000' } });
+  assert.equal(bad.status, 401);
+  const ok = await call('POST', '/api/auth/login', { body: { username: 'lemuel', password: ADMIN_PASS } });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.user.role, ROLES.SUPERADMIN);
+  adminCookie = ok.cookie;
+});
+
+test('el usuario agrega un grupo de Facebook y solo se aceptan enlaces de Facebook', async () => {
+  const bad = await call('POST', '/api/groups', { cookie: userCookie, body: { name: 'Falso', url: 'https://example.com/groups/x' } });
+  assert.equal(bad.status, 400);
+  const r = await call('POST', '/api/groups', {
+    cookie: userCookie,
+    body: { name: 'Compra y venta La Habana', url: 'https://m.facebook.com/groups/ventas-habana/?ref=share' },
+  });
+  assert.equal(r.status, 201);
+  assert.equal(r.json.group.url, 'https://www.facebook.com/groups/ventas-habana');
+  groupId = r.json.group.id;
+  const dup = await call('POST', '/api/groups', { cookie: userCookie, body: { name: 'Otra', url: 'https://www.facebook.com/groups/ventas-habana' } });
+  assert.equal(dup.status, 409);
+});
+
+test('el superadministrador importa publicaciones y las duplicadas se omiten', async () => {
+  const csv = [
+    'product,price,currency,province,municipality,published_at,description,source_url',
+    'iPhone 16,950,USD,La Habana,Playa,2026-11-16,"Nuevo, con caja",https://www.facebook.com/groups/ventas-habana/posts/1',
+    'iPhone 16 Pro,1100,USD,La Habana,Plaza de la Revolución,2026-11-17,Usado,https://www.facebook.com/groups/ventas-habana/posts/2',
+    'Samsung A15,Mucho,USD,La Habana,Playa,2026-11-16,,',
+  ].join('\n');
+  const r = await call('POST', '/api/admin/imports', { cookie: adminCookie, body: { group_id: groupId, format: 'csv', content: csv } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.inserted, 2);
+  assert.equal(r.json.error_count, 1);
+  const again = await call('POST', '/api/admin/imports', { cookie: adminCookie, body: { group_id: groupId, format: 'csv', content: csv } });
+  assert.equal(again.json.inserted, 0);
+  assert.equal(again.json.duplicates, 2);
+});
+
+test('el grupo propuesto por el usuario queda como solicitud hasta que el administrador lo activa', async () => {
+  const list = await call('GET', '/api/groups', { cookie: userCookie });
+  const g = list.json.groups.find((x) => x.id === groupId);
+  assert.equal(g.status, 'solicitado');
+  // Activar sin provincia no se permite
+  const noProv = await call('PATCH', `/api/admin/groups/${groupId}`, { cookie: adminCookie, body: { status: 'activo' } });
+  assert.equal(noProv.status, 400);
+  const ok = await call('PATCH', `/api/admin/groups/${groupId}`, { cookie: adminCookie, body: { status: 'activo', province: 'La Habana', municipality: 'Playa' } });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.group.status, 'activo');
+  assert.equal(ok.json.group.province, 'La Habana');
+});
+
+test('el administrador crea un grupo con provincia y fecha de inicio del historial', async () => {
+  const bad = await call('POST', '/api/admin/groups', { cookie: adminCookie, body: { name: 'Sin provincia', url: 'https://www.facebook.com/groups/otro-grupo' } });
+  assert.equal(bad.status, 400);
+  const r = await call('POST', '/api/admin/groups', {
+    cookie: adminCookie,
+    body: { name: 'Teléfonos Matanzas', url: 'https://www.facebook.com/groups/telefonos-matanzas', province: 'Matanzas', created_on: '2019-03-01', history_from: '2019-03-01' },
+  });
+  assert.equal(r.status, 201);
+  assert.equal(r.json.group.status, 'activo');
+  assert.equal(r.json.group.created_on, '2019-03-01');
+});
+
+test('las cargas y los grupos no se borran; cada carga queda registrada', async () => {
+  const p = await store.list('posts')[0];
+  const delPost = await call('DELETE', `/api/admin/posts/${p.id}`, { cookie: adminCookie, body: {} });
+  assert.equal(delPost.status, 403);
+  assert.equal(store.list('posts').length, 2);
+  const delGroup = await call('DELETE', `/api/admin/groups/${groupId}`, { cookie: adminCookie, body: {} });
+  assert.equal(delGroup.status, 403);
+  const logs = await call('GET', '/api/admin/imports', { cookie: adminCookie });
+  assert.equal(logs.json.imports.length, 2);
+  assert.equal(logs.json.imports[0].username, 'lemuel');
+  const hist = await call('GET', `/api/admin/groups/${groupId}/history`, { cookie: adminCookie });
+  assert.equal(hist.status, 200);
+  assert.equal(hist.json.total, 2);
+  assert.equal(hist.json.imports.length, 2);
+  assert.ok(hist.json.monthly.length >= 1);
+  assert.equal(hist.json.group.coverage_from, '2026-11-16');
+  assert.equal(hist.json.group.coverage_to, '2026-11-17');
+  assert.equal(hist.json.group.last_import_day, hist.json.imports[0].day);
+});
+
+test('búsqueda con filtros, análisis y trazabilidad a la fuente', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const r = await call('GET', `/api/search?q=iphone&province=La%20Habana&days=30&end=${today}`, { cookie: userCookie });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.total, 2);
+  assert.ok(r.json.results.every((p) => p.group_url.startsWith('https://www.facebook.com/groups/')));
+  assert.equal(r.json.analysis.prices.USD.sufficient, false);
+  assert.ok(r.json.analysis.warnings.length > 0);
+  const hist = await call('GET', '/api/searches', { cookie: userCookie });
+  assert.equal(hist.json.searches.length, 1);
+});
+
+test('validaciones de búsqueda: período máximo y provincia desconocida', async () => {
+  assert.equal((await call('GET', '/api/search?days=31', { cookie: userCookie })).status, 400);
+  assert.equal((await call('GET', '/api/search?province=Narnia', { cookie: userCookie })).status, 400);
+});
+
+test('grupo pausado deja de contar en la búsqueda', async () => {
+  const p = await call('PATCH', `/api/admin/groups/${groupId}`, { cookie: adminCookie, body: { status: 'pausado' } });
+  assert.equal(p.status, 200);
+  const r = await call('GET', '/api/search?q=iphone&days=30', { cookie: userCookie });
+  assert.equal(r.json.total, 0);
+  await call('PATCH', `/api/admin/groups/${groupId}`, { cookie: adminCookie, body: { status: 'activo' } });
+});
+
+test('incidencias y cierre de sesión', async () => {
+  const r = await call('POST', '/api/reports', { cookie: userCookie, body: { type: 'sugerencia', message: 'Agregar más provincias de análisis' } });
+  assert.equal(r.status, 201);
+  const out = await call('POST', '/api/auth/logout', { cookie: userCookie, body: {} });
+  assert.equal(out.status, 200);
+  const me = await call('GET', '/api/me', { cookie: userCookie });
+  assert.equal(me.status, 200);
+  assert.equal(me.json.user, null);
+});
+
+test('seguridad: escrituras exigen JSON y no hay salida de la carpeta pública', async () => {
+  const form = await fetch(base + '/api/groups', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: 'x', });
+  assert.equal(form.status, 415);
+  const trav = await fetch(base + '/..%2fpackage.json');
+  assert.equal(trav.status, 404);
+  const page = await fetch(base + '/');
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get('content-security-policy'), /default-src 'self'/);
+});

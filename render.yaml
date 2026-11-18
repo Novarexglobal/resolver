@@ -1,0 +1,23 @@
+# Despliegue en Render (plan gratuito). Se conecta a un repositorio de GitHub.
+services:
+  - type: web
+    name: resolver
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      # Solo para la primera vez: crea el superadministrador. Bórralas después de entrar.
+      - key: RESOLVER_ADMIN_USER
+        sync: false
+      - key: RESOLVER_ADMIN_PASSWORD
+        sync: false
