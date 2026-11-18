@@ -571,6 +571,10 @@ export function createApp(store, options = {}) {
 }
 
 export async function createStore(cfg) {
+  // Configuración a medias: no caer en silencio al archivo local (en Render se borra al reiniciar)
+  if (Boolean(cfg.supabaseUrl) !== Boolean(cfg.supabaseKey)) {
+    throw new Error('Define SUPABASE_URL y SUPABASE_SERVICE_KEY juntas, o ninguna.');
+  }
   if (cfg.supabaseUrl && cfg.supabaseKey) {
     const store = new SupabaseStore({ url: cfg.supabaseUrl, key: cfg.supabaseKey });
     await store.load();

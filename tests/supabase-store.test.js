@@ -105,3 +105,8 @@ test('clave incorrecta: error claro al cargar', async () => {
 test('sin credenciales no arranca', () => {
   assert.throws(() => new SupabaseStore({ url: '', key: '' }), /Faltan SUPABASE_URL/);
 });
+
+test('configuración a medias: createStore se niega a usar el archivo local', async () => {
+  const { createStore } = await import('../src/server.js');
+  await assert.rejects(createStore({ supabaseUrl: 'https://x.supabase.co', supabaseKey: '', dataFile: '/tmp/x.json' }), /juntas, o ninguna/);
+});
