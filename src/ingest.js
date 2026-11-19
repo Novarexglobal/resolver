@@ -91,7 +91,8 @@ export function validatePost(raw, index, now = new Date()) {
       currency,
       province,
       municipality: get('municipality').slice(0, 80),
-      category: get('category').slice(0, 60) || 'Otros',
+      // Vacía si no viene: el clasificador del motor la completa y marca su origen
+      category: get('category').slice(0, 60),
       published_at,
       description: get('description').slice(0, 1000),
       source_url,

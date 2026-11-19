@@ -113,10 +113,12 @@ export function filterPosts(posts, filters) {
   const municipality = normalizeText(filters.municipality);
   const brand = normalizeText(filters.brand);
   const model = normalizeText(filters.model);
+  // Lista de categorías admitidas (la categoría elegida más sus subcategorías). Si no se pide ninguna, no filtra.
+  const categories = filters.categories ?? (filters.category ? [filters.category] : null);
   return posts.filter((p) => {
     if (filters.province && p.province !== filters.province) return false;
     if (municipality && normalizeText(p.municipality) !== municipality) return false;
-    if (filters.category && p.category !== filters.category) return false;
+    if (categories && !categories.includes(p.category)) return false;
     if (filters.start && p.published_at < filters.start) return false;
     if (filters.end && p.published_at > filters.end) return false;
     const text = normalizeText(`${p.product} ${p.description ?? ''}`);

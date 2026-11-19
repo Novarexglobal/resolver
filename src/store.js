@@ -4,7 +4,22 @@ import { randomUUID } from 'node:crypto';
 
 // Colecciones persistidas. Todo empieza vacío: no hay datos de ejemplo.
 // 'imports' es un registro de solo escritura: las cargas nunca se borran.
-export const COLLECTIONS = ['users', 'sessions', 'groups', 'posts', 'searches', 'reports', 'categories', 'imports'];
+export const COLLECTIONS = [
+  'users',
+  'sessions',
+  'groups',
+  'posts',
+  'searches',
+  'reports',
+  'categories',
+  'imports',
+  'signals',
+  'saves',
+  'errors',
+  'resets',
+  'settings',
+  'sources',
+];
 
 /**
  * Almacén JSON con escritura atómica (tmp + rename).

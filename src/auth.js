@@ -1,6 +1,20 @@
 import { scryptSync, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 
-export const ROLES = { SUPERADMIN: 'superadmin', USER: 'user' };
+export const ROLES = { SUPERADMIN: 'superadmin', MODERATOR: 'moderador', USER: 'user' };
+// Moderador: gestiona contenido (grupos, cargas, categorías, señales, reportes). No gestiona cuentas, configuración ni errores.
+export const CONTENT_ROLES = [ROLES.SUPERADMIN, ROLES.MODERATOR];
+
+export function validateEmail(value) {
+  return typeof value === 'string' && value.length <= 120 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+export function newToken() {
+  return randomBytes(32).toString('base64url');
+}
+
+export function hashToken(token) {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 const KEYLEN = 64;
 

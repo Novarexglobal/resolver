@@ -24,16 +24,26 @@ export const PROVINCES = [
   'Isla de la Juventud',
 ];
 
-// Categorías configurables: se pueden ampliar desde el panel de administración
-export const DEFAULT_CATEGORIES = [
-  'Celulares',
-  'Computadoras',
-  'Electrodomésticos',
-  'Electrónica',
-  'Ropa y calzado',
-  'Hogar',
-  'Otros',
+// Estructura jerárquica del módulo 7. Las subcategorías antiguas (Celulares, Computadoras, Hogar...) se conservan bajo su padre.
+export const CATEGORY_TREE = [
+  { name: 'Tecnología y teléfonos', children: ['Celulares', 'Electrónica'] },
+  { name: 'Electrodomésticos', children: [] },
+  { name: 'Informática', children: ['Computadoras'] },
+  { name: 'Vehículos', children: [] },
+  { name: 'Motocicletas y bicicletas', children: [] },
+  { name: 'Hogar y muebles', children: ['Hogar'] },
+  { name: 'Ropa y calzado', children: [] },
+  { name: 'Belleza y cuidado personal', children: [] },
+  { name: 'Alimentación', children: [] },
+  { name: 'Ferretería y construcción', children: [] },
+  { name: 'Herramientas', children: [] },
+  { name: 'Deportes', children: [] },
+  { name: 'Repuestos y accesorios', children: [] },
+  { name: 'Otros', children: [] },
 ];
+
+// Plazo de un enlace de recuperación de contraseña
+export const RECOVERY_MINUTES = 30;
 
 export const CURRENCIES = ['CUP', 'USD', 'MLC', 'EUR'];
 
@@ -55,4 +65,8 @@ export const config = {
   // Solo para crear el superadministrador en un hosting sin consola (si aún no existe)
   bootstrapUser: process.env.RESOLVER_ADMIN_USER || '',
   bootstrapPassword: process.env.RESOLVER_ADMIN_PASSWORD || '',
+  // Correo para recuperar contraseña (Resend). Sin estas variables, la recuperación queda registrada para el administrador.
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  mailFrom: process.env.RESOLVER_MAIL_FROM || '',
+  appUrl: process.env.RESOLVER_APP_URL || '',
 };
