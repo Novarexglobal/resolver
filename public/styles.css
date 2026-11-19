@@ -139,7 +139,7 @@ button.small { width: auto; padding: 6px 10px; font-size: 0.85rem; }
 
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   background: var(--card); border-top: 1px solid var(--line);
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
 }
@@ -165,7 +165,23 @@ th { color: var(--muted); font-weight: 600; }
 .table-wrap { overflow-x: auto; }
 
 @media (min-width: 900px) {
-  .tabbar { position: static; margin: 0 0 16px; border: 1px solid var(--line); border-radius: var(--radius); grid-template-columns: repeat(4, auto); justify-content: start; }
+  .tabbar { position: static; margin: 0 0 16px; border: 1px solid var(--line); border-radius: var(--radius); grid-template-columns: repeat(5, auto); justify-content: start; }
   .tabbar button { padding: 10px 16px; }
   main { padding-bottom: 24px; }
+  .quick { grid-template-columns: repeat(4, 1fr); }
+  .dist-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* Inicio y buscador avanzado */
+.quick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.quick button { width: 100%; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { width: auto; padding: 6px 12px; border-radius: 999px; font-size: 0.85rem; }
+.conf { display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--muted); margin-left: 6px; }
+.signal-meta { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.empty { color: var(--muted); margin: 0; font-size: 0.9rem; }
+.post .seller { font-size: 0.8rem; color: var(--text); }
+.outlier-low { color: var(--warn); font-weight: 600; }
+.outlier-high { color: var(--bad); font-weight: 600; }
+.badge, button.small { white-space: nowrap; }
+.list-item > button.small { width: auto; flex-shrink: 0; }

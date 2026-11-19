@@ -29,10 +29,10 @@ Este informe es honesto: indica lo que funciona, lo que no está construido toda
 
 Estas funciones de la especificación **no están construidas** o están solo parcialmente:
 
-- **Dashboard público** (Módulo 1): solo existe el resumen del administrador.
-- **Buscador avanzado** (Módulo 2): sin búsqueda por marca ni modelo, sin orden por precio o fecha, sin fotografías subidas (solo enlaces de imagen), sin datos del vendedor.
-- **Análisis** (Módulo 3): sin comparación entre períodos, sin productos con precios atípicos, sin análisis por categoría, sin comparación entre municipios. Los gráficos son barras SVG simples.
-- **Señales** (Módulo 4): solo dos tipos de señal (tendencia de precio y concentración de fuente). No hay módulo de señales persistido ni las demás categorías.
+- **Inicio** (Módulo 1): construido. Cifras reales de publicaciones y cobertura, últimas búsquedas y análisis del usuario, señales, productos con presencia (no demanda), evolución de precios, provincias y actividad de cargas. Sin datos, muestra estados vacíos. Pendiente: accesos a la información de cada módulo (Módulo 11).
+- **Buscador** (Módulo 2): construido: marca, modelo, orden por precio o fecha, paginación con «Cargar más» y vendedor cuando la fuente lo publica. Pendiente: fotografías subidas (hoy solo enlaces de imagen) y los datos de contacto del vendedor, que no se guardan a propósito por privacidad.
+- **Análisis** (Módulo 3): construido: precios atípicos (rango intercuartílico, mínimo 5 publicaciones por producto y moneda) y aviso cuando hay varias monedas. Pendiente: comparación entre períodos, análisis por categoría y comparación entre municipios.
+- **Señales** (Módulo 4): cuatro tipos (tendencia de precio, diferencia entre provincias, concentración de fuente y, en análisis, precios atípicos). Cada señal muestra evidencia y nivel de confianza. Pendiente: persistencia de señales, aumentos o disminuciones de publicaciones, presencia creciente y oportunidades de compra y reventa.
 - **Historial** (Módulo 5): solo historial de búsquedas. Faltan análisis guardados, señales, búsquedas guardadas y comparación entre resultados anteriores.
 - **Explorar** (Módulo 6): no construido.
 - **Categorías jerárquicas** (Módulo 7): lista plana configurable; no la estructura de 14 categorías con jerarquía.
@@ -57,8 +57,8 @@ Estas funciones de la especificación **no están construidas** o están solo pa
 
 ## 5. Pruebas ejecutadas
 
-- **34 pruebas automáticas** (`npm test`): lógica de período, deduplicación, filtros, análisis, validación, CSV y formato por líneas, contraseñas, enlaces de Facebook, API completa (permisos, grupos, activación, cargas, historial, exportación, restablecimiento de contraseña, seguridad), y el adaptador de Supabase contra un servidor simulado (escritura, recuperación, reintentos, errores de clave, configuración a medias).
-- **31 comprobaciones en navegador real** (Chromium con perfiles de iPhone 13 y Pixel 7): registro, grupos, importación, búsqueda con filtros, estadísticas, enlaces a la fuente, historial, reportes, cierre de sesión, panel de administración, historial de grupo y ausencia de errores en consola.
+- **43 pruebas automáticas** (`npm test`): lógica de período, deduplicación, filtros, análisis, validación, CSV y formato por líneas, contraseñas, enlaces de Facebook, API completa (permisos, grupos, activación, cargas, historial, exportación, restablecimiento de contraseña, seguridad), y el adaptador de Supabase contra un servidor simulado (escritura, recuperación, reintentos, errores de clave, configuración a medias).
+- **47 comprobaciones en navegador real** (incluye inicio, orden por precio, filtro por modelo y vendedor) (Chromium con perfiles de iPhone 13 y Pixel 7): registro, grupos, importación, búsqueda con filtros, estadísticas, enlaces a la fuente, historial, reportes, cierre de sesión, panel de administración, historial de grupo y ausencia de errores en consola.
 
 ## 6. Errores conocidos
 
@@ -76,7 +76,8 @@ Requisitos: Node.js 22 o superior.
 npm install            # no instala nada, pero es seguro ejecutarlo
 npm run create-superadmin -- tu_usuario   # solo la primera vez, en local
 npm start              # http://localhost:3000 (usuarios) y /admin (administrador)
-npm test               # 34 pruebas
+npm test               # 43 pruebas
+npm run test:e2e       # 47 comprobaciones en navegador (requiere Playwright instalado en el equipo)
 ```
 
 Variables de entorno: ver `.env.example` y la tabla en `README.md`.

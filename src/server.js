@@ -26,7 +26,7 @@ import {
   recordFailure,
   clearFailures,
 } from './auth.js';
-import { analyze, resolvePeriod, filterPosts, dedupe, monthlySummary, todayISO, isDay } from './analysis.js';
+import { analyze, resolvePeriod, filterPosts, sortPosts, SORTS, dedupe, monthlySummary, todayISO, isDay, buildDashboard } from './analysis.js';
 import { validateBatch, validatePost, parseImport, parseLines } from './ingest.js';
 import { HttpError, sendJson, readJson, serveStatic, securityHeaders } from './http.js';
 
@@ -54,6 +54,9 @@ const publicPost = (p) => ({
   image_url: p.image_url,
   group_name: p.group_name,
   group_url: p.group_url,
+  brand: p.brand || '',
+  model: p.model || '',
+  seller: p.seller || '',
 });
 
 /** Valida y canonicaliza un enlace de grupo de Facebook. */
@@ -196,6 +199,34 @@ export function createApp(store, options = {}) {
     ctx.json(201, { group: groupView(group) });
   });
 
+  // ---------- Inicio ----------
+  // Todo sale de publicaciones reales de grupos activos. Las búsquedas son solo del propio usuario.
+  add('GET', '/api/dashboard', (ctx) => {
+    requireUser(ctx);
+    const groups = groupsById();
+    const activePosts = store
+      .list('posts')
+      .filter((p) => groups.get(p.group_id)?.status === 'activo')
+      .map((p) => ({ ...p, group_name: groups.get(p.group_id).name, group_url: groups.get(p.group_id).url }));
+    const recent = store
+      .list('searches', (s) => s.user_id === ctx.user.id)
+      .slice(-5)
+      .reverse();
+    const activity = store
+      .list('imports')
+      .slice(-8)
+      .reverse()
+      .map((i) => ({
+        group_name: groups.get(i.group_id)?.name ?? '—',
+        day: i.day,
+        received: i.received,
+        inserted: i.inserted,
+        duplicates: i.duplicates,
+        created_at: i.created_at,
+      }));
+    ctx.json(200, { ...buildDashboard(activePosts), recent_searches: recent, activity });
+  });
+
   // ---------- Búsqueda y análisis ----------
   add('GET', '/api/search', (ctx) => {
     requireUser(ctx);
@@ -204,6 +235,12 @@ export function createApp(store, options = {}) {
     const province = q.get('province') || '';
     const municipality = (q.get('municipality') || '').trim().slice(0, 80);
     const category = q.get('category') || '';
+    const brand = (q.get('brand') || '').trim().slice(0, 60);
+    const model = (q.get('model') || '').trim().slice(0, 60);
+    const sort = q.get('sort') || 'fecha_desc';
+    if (!SORTS.includes(sort)) throw new HttpError(400, 'Orden no válido.');
+    const limit = Math.min(Math.max(Number.parseInt(q.get('limit'), 10) || 50, 1), MAX_RESULTS);
+    const offset = Math.max(Number.parseInt(q.get('offset'), 10) || 0, 0);
     if (province && !PROVINCES.includes(province)) throw new HttpError(400, 'Provincia no válida.');
     if (category && !store.get('categories', (c) => c.name === category)) throw new HttpError(400, 'Categoría no válida.');
     let period;
@@ -220,27 +257,32 @@ export function createApp(store, options = {}) {
       .filter((p) => groups.get(p.group_id)?.status === 'activo')
       .map((p) => ({ ...p, group_name: groups.get(p.group_id).name, group_url: groups.get(p.group_id).url }));
 
-    const matched = filterPosts(candidates, { q: text, province, municipality, category, start: period.start, end: period.end });
+    const matched = filterPosts(candidates, { q: text, province, municipality, category, brand, model, start: period.start, end: period.end });
     const analysis = analyze(matched, period);
-    const results = [...matched]
-      .sort((a, b) => (a.published_at < b.published_at ? 1 : a.published_at > b.published_at ? -1 : 0))
-      .slice(0, MAX_RESULTS)
-      .map(publicPost);
+    const page = sortPosts(matched, sort).slice(offset, offset + limit).map(publicPost);
+    const nextOffset = offset + page.length < matched.length ? offset + page.length : null;
 
-    store.insert('searches', {
-      user_id: ctx.user.id,
-      q: text,
-      filters: { province, municipality, category },
-      period,
-      total: matched.length,
-    });
+    // Solo la primera página entra al historial; "Cargar más" no duplica la búsqueda
+    if (offset === 0) {
+      store.insert('searches', {
+        user_id: ctx.user.id,
+        q: text,
+        filters: { province, municipality, category, brand, model, sort },
+        period,
+        total: matched.length,
+        summary: { sources: analysis.sources, prices: analysis.prices },
+      });
+    }
 
     ctx.json(200, {
       period,
-      filters: { q: text, province, municipality, category },
+      filters: { q: text, province, municipality, category, brand, model, sort },
       total: matched.length,
-      truncated: matched.length > MAX_RESULTS,
-      results,
+      offset,
+      limit,
+      next_offset: nextOffset,
+      truncated: nextOffset !== null,
+      results: page,
       analysis,
     });
   });
@@ -400,7 +442,7 @@ export function createApp(store, options = {}) {
     requireSuper(ctx);
     const group = store.get('groups', (g) => g.id === ctx.params.id);
     if (!group) throw new HttpError(404, 'Grupo no encontrado.');
-    const cols = ['published_at', 'product', 'price', 'currency', 'province', 'municipality', 'category', 'description', 'source_url', 'image_url'];
+    const cols = ['published_at', 'product', 'price', 'currency', 'province', 'municipality', 'category', 'description', 'source_url', 'image_url', 'brand', 'model', 'seller'];
     const esc = (v) => {
       const s = v == null ? '' : String(v);
       return /[",;\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

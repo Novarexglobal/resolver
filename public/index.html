@@ -54,17 +54,87 @@
 
     <main>
       <nav class="tabbar" aria-label="Secciones">
-        <button type="button" data-view="buscar" class="active">Buscar</button>
+        <button type="button" data-view="inicio" class="active">Inicio</button>
+        <button type="button" data-view="buscar">Buscar</button>
         <button type="button" data-view="grupos">Grupos</button>
         <button type="button" data-view="historial">Historial</button>
         <button type="button" data-view="reportes">Reportes</button>
       </nav>
 
+      <!-- INICIO -->
+      <section id="view-inicio">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <h2>Inicio</h2>
+            <span class="muted" id="dash-period"></span>
+          </div>
+          <p class="muted" style="margin:0">Datos reales de los grupos activos. Mostrar un producto indica que aparece en publicaciones; no mide la demanda.</p>
+        </div>
+        <div class="card quick" aria-label="Accesos directos">
+          <button type="button" class="secondary" data-go="buscar">Buscar producto</button>
+          <button type="button" class="secondary" data-go="grupos">Grupos</button>
+          <button type="button" class="secondary" data-go="historial">Historial</button>
+          <button type="button" class="secondary" data-go="reportes">Reportes</button>
+        </div>
+        <div class="grid-stats" id="dash-market"></div>
+        <div class="card">
+          <h3>Últimas búsquedas</h3>
+          <div id="dash-recent" class="chips"></div>
+        </div>
+        <div class="card">
+          <h3>Últimos análisis</h3>
+          <div id="dash-analyses" class="list"></div>
+        </div>
+        <div class="card">
+          <h3>Señales recientes</h3>
+          <p class="muted" style="margin:0 0 10px;font-size:0.85rem">Son indicios sobre la oferta observada, no hechos confirmados.</p>
+          <div id="dash-signals" class="list"></div>
+        </div>
+        <div class="card">
+          <h3>Evolución de precios</h3>
+          <div id="dash-evolution"></div>
+        </div>
+        <div class="dist-grid">
+          <div class="card" style="margin:0">
+            <h3>Productos con presencia</h3>
+            <div id="dash-featured" class="list"></div>
+          </div>
+          <div class="card" style="margin:0">
+            <h3>Por provincia</h3>
+            <div id="dash-provinces" class="list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Actividad reciente</h3>
+          <p class="muted" style="margin:0 0 10px;font-size:0.85rem">Cargas registradas en los grupos.</p>
+          <div id="dash-activity" class="list"></div>
+        </div>
+      </section>
+
       <!-- BUSCAR -->
-      <section id="view-buscar">
+      <section id="view-buscar" class="hidden">
         <form id="search-form" class="card" novalidate>
           <label for="q">¿Qué producto buscas?</label>
           <input id="q" class="search-input" type="search" placeholder="Ej.: iPhone 16, Samsung A15, refrigerador" maxlength="120" autocomplete="off">
+          <div class="form-grid" style="margin-top:12px">
+            <div>
+              <label for="brand">Marca</label>
+              <input id="brand" maxlength="60" placeholder="Ej.: Samsung" autocomplete="off">
+            </div>
+            <div>
+              <label for="model">Modelo</label>
+              <input id="model" maxlength="60" placeholder="Ej.: A15" autocomplete="off">
+            </div>
+            <div>
+              <label for="sort">Ordenar por</label>
+              <select id="sort">
+                <option value="fecha_desc" selected>Más recientes</option>
+                <option value="fecha_asc">Más antiguas</option>
+                <option value="precio_asc">Precio: de menor a mayor</option>
+                <option value="precio_desc">Precio: de mayor a menor</option>
+              </select>
+            </div>
+          </div>
           <div class="form-grid" style="margin-top:12px">
             <div>
               <label for="province">Provincia</label>

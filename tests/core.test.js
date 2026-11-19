@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCSV, validatePost, validateBatch } from '../src/ingest.js';
-import { resolvePeriod, dedupe, filterPosts, analyze, normalizeText } from '../src/analysis.js';
+import { resolvePeriod, dedupe, filterPosts, analyze, normalizeText, sortPosts, buildDashboard } from '../src/analysis.js';
 import { hashPassword, verifyPassword, validatePassword } from '../src/auth.js';
 import { canonicalGroupUrl } from '../src/server.js';
 
@@ -122,4 +122,91 @@ test('carga rápida por líneas: 8 campos, vacíos permitidos, errores por líne
   assert.equal(posts[1].currency, 'CUP');
   assert.equal(errors.length, 1);
   assert.match(errors[0].message, /8 campos/);
+});
+
+test('marca, modelo y vendedor son opcionales y se guardan solo si vienen', () => {
+  const ok = validatePost({ ...base, brand: 'Apple', model: 'iPhone 16', seller: 'Ana M.' }, 0, NOW);
+  assert.equal(ok.post.brand, 'Apple');
+  assert.equal(ok.post.model, 'iPhone 16');
+  assert.equal(ok.post.seller, 'Ana M.');
+  const none = validatePost(base, 0, NOW);
+  assert.equal(none.post.brand, '');
+  assert.equal(none.post.seller, '');
+});
+
+test('filtro por marca y modelo: campo propio o frase completa, nunca subcadena', () => {
+  const posts = [
+    { ...base, product: 'Samsung A15', brand: 'Samsung', model: 'A15', group_id: 'g1' },
+    { ...base, product: 'Pineapple phone', description: '', group_id: 'g1' },
+    { ...base, product: 'iPhone 16 Pro Max', brand: '', model: '', group_id: 'g1' },
+  ];
+  assert.equal(filterPosts(posts, { brand: 'samsung' }).length, 1);
+  assert.equal(filterPosts(posts, { model: 'a15' }).length, 1);
+  assert.equal(filterPosts(posts, { brand: 'iphone' }).length, 1); // aparece en el producto
+  assert.equal(filterPosts(posts, { brand: 'apple' }).length, 0); // no hay campo ni frase
+  assert.equal(filterPosts(posts, { brand: 'pine' }).length, 0); // subcadena: no coincide
+});
+
+test('orden: por precio agrupa por moneda y por fecha ordena en ambos sentidos', () => {
+  const posts = [
+    { ...base, price: 900, currency: 'USD', published_at: '2026-11-10' },
+    { ...base, price: 50000, currency: 'CUP', published_at: '2026-11-12' },
+    { ...base, price: 700, currency: 'USD', published_at: '2026-11-16' },
+  ];
+  assert.deepEqual(sortPosts(posts, 'precio_asc').map((p) => `${p.currency}${p.price}`), ['CUP50000', 'USD700', 'USD900']);
+  assert.deepEqual(sortPosts(posts, 'precio_desc').map((p) => p.price), [50000, 900, 700]);
+  assert.deepEqual(sortPosts(posts, 'fecha_asc').map((p) => p.published_at), ['2026-11-10', '2026-11-12', '2026-11-16']);
+  assert.equal(sortPosts(posts).at(0).published_at, '2026-11-16');
+});
+
+test('precios atípicos: exigen al menos 5 publicaciones y dispersión', () => {
+  const period = resolvePeriod({ end: '2026-11-18', days: 30 }, NOW);
+  const prices = [900, 920, 910, 905, 915, 60];
+  const posts = prices.map((price, i) => ({ ...base, price, published_at: `2026-11-1${i}`, group_name: 'G', group_id: 'g1' }));
+  const res = analyze(posts, period);
+  assert.equal(res.outliers.length, 1);
+  assert.equal(res.outliers[0].price, 60);
+  assert.equal(res.outliers[0].direction, 'bajo');
+  assert.equal(analyze(posts.slice(0, 3), period).outliers.length, 0);
+});
+
+test('señal de diferencia entre provincias solo con datos suficientes en ambas', () => {
+  const period = resolvePeriod({ end: '2026-11-18', days: 30 }, NOW);
+  const mk = (province, price, day) => ({ ...base, province, price, published_at: day, group_name: 'G', group_id: 'g1' });
+  const posts = [
+    mk('La Habana', 1000, '2026-11-10'), mk('La Habana', 1000, '2026-11-11'), mk('La Habana', 1000, '2026-11-12'),
+    mk('Matanzas', 800, '2026-11-13'), mk('Matanzas', 800, '2026-11-14'), mk('Matanzas', 800, '2026-11-15'),
+  ];
+  const res = analyze(posts, period);
+  const signal = res.signals.find((s) => s.type === 'diferencia_provincias');
+  assert.ok(signal);
+  assert.match(signal.text, /La Habana es 25% mayor que en Matanzas/);
+  assert.ok(signal.evidence && signal.confidence);
+  // Con dos publicaciones en una provincia no hay comparación
+  const few = analyze(posts.slice(0, 5), period);
+  assert.equal(few.signals.some((s) => s.type === 'diferencia_provincias'), false);
+});
+
+test('panel de inicio: sin datos no inventa cifras; con datos calcula cobertura y presencia', () => {
+  const empty = buildDashboard([], NOW);
+  assert.equal(empty.market.posts_total, 0);
+  assert.equal(empty.market.coverage_from, null);
+  assert.equal(empty.evolution, null);
+  assert.deepEqual(empty.signals, []);
+  assert.deepEqual(empty.featured, []);
+  assert.deepEqual(empty.provinces, []);
+
+  const posts = [
+    { ...base, product: 'iPhone 16', price: 950, published_at: '2026-11-16', group_id: 'g1', group_name: 'A' },
+    { ...base, product: 'iPhone 16', price: 980, published_at: '2026-11-17', group_id: 'g2', group_name: 'B' },
+    { ...base, product: 'Ventilador', price: 40, published_at: '2026-10-01', group_id: 'g1', group_name: 'A' },
+  ];
+  const d = buildDashboard(posts, NOW);
+  assert.equal(d.market.posts_total, 3);
+  assert.equal(d.market.posts_period, 2); // el de octubre queda fuera de 30 días
+  assert.equal(d.market.coverage_from, '2026-10-01');
+  assert.equal(d.featured.length, 1);
+  assert.equal(d.featured[0].name, 'iPhone 16');
+  assert.equal(d.featured[0].posts, 2);
+  assert.equal(d.featured[0].groups, 2);
 });

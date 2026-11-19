@@ -224,3 +224,65 @@ test('el administrador restablece la contraseña de un usuario y se cierran sus 
   const nueva = await call('POST', '/api/auth/login', { body: { username: 'vendedor_1', password: 'nueva-clave-2026' } });
   assert.equal(nueva.status, 200);
 });
+
+const todayHavana = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Havana', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+test('búsqueda por marca y modelo, orden por precio y paginación', async () => {
+  // La prueba de cierre de sesión invalidó la cookie anterior: se inicia sesión de nuevo
+  const login = await call('POST', '/api/auth/login', { body: { username: 'vendedor_1', password: 'nueva-clave-2026' } });
+  assert.equal(login.status, 200);
+  userCookie = login.cookie;
+  const src = 'https://www.facebook.com/groups/ventas-habana/posts/';
+  const rows = [
+    { product: 'Samsung A15', brand: 'Samsung', model: 'A15', price: 250, currency: 'USD', province: 'La Habana', municipality: 'Playa', published_at: '2026-11-15', seller: 'Ana M.', source_url: src + '50' },
+    { product: 'iPhone 13 caja', price: 600, currency: 'USD', province: 'La Habana', municipality: 'Playa', published_at: '2026-11-14', source_url: src + '51' },
+    { product: 'Refrigerador Haier', brand: 'Haier', model: 'HRF', price: 40000, currency: 'CUP', province: 'La Habana', municipality: 'Playa', published_at: '2026-11-13', source_url: src + '52' },
+  ];
+  const imp = await call('POST', '/api/admin/imports', { cookie: adminCookie, body: { group_id: groupId, format: 'json', content: JSON.stringify(rows) } });
+  assert.equal(imp.json.inserted, 3);
+
+  const today = todayHavana();
+  const byBrand = await call('GET', `/api/search?brand=samsung&days=30&end=${today}`, { cookie: userCookie });
+  assert.equal(byBrand.json.total, 1);
+  assert.equal(byBrand.json.results[0].seller, 'Ana M.');
+  assert.equal((await call('GET', `/api/search?model=HRF&days=30&end=${today}`, { cookie: userCookie })).json.total, 1);
+
+  const searchUrl = `/api/search?province=La%20Habana&days=30&end=${today}&sort=precio_asc`;
+  const asc = await call('GET', searchUrl, { cookie: userCookie });
+  assert.equal(asc.json.total, 5);
+  assert.equal(asc.json.results[0].price, 40000); // CUP primero: no se mezclan monedas
+  assert.equal(asc.json.results[1].price, 250);
+  assert.ok(asc.json.analysis.warnings.some((w) => /varias monedas/.test(w)));
+
+  const p1 = await call('GET', `${searchUrl}&limit=2`, { cookie: userCookie });
+  assert.equal(p1.json.results.length, 2);
+  assert.equal(p1.json.next_offset, 2);
+  const p3 = await call('GET', `${searchUrl}&limit=2&offset=4`, { cookie: userCookie });
+  assert.equal(p3.json.results.length, 1);
+  assert.equal(p3.json.next_offset, null);
+  assert.equal((await call('GET', '/api/search?sort=raro', { cookie: userCookie })).status, 400);
+});
+
+test('panel de inicio con datos reales; usuario nuevo ve estados vacíos', async () => {
+  assert.equal((await call('GET', '/api/dashboard')).status, 401);
+  const r = await call('GET', '/api/dashboard', { cookie: userCookie });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.market.posts_total, 6); // 5 de La Habana + 1 de Matanzas, todos de grupos activos
+  assert.equal(r.json.market.groups_with_data, 2);
+  assert.ok(r.json.recent_searches.length >= 1);
+  assert.equal(r.json.activity[0].group_name, 'Compra y venta La Habana');
+  assert.ok(Array.isArray(r.json.provinces) && r.json.provinces.length === 2);
+
+  const fresh = await call('POST', '/api/auth/register', { body: { username: 'nuevo.usuario', password: USER_PASS + 'x' } });
+  const empty = await call('GET', '/api/dashboard', { cookie: fresh.cookie });
+  assert.equal(empty.status, 200);
+  assert.deepEqual(empty.json.recent_searches, []);
+});
+
+test('la exportación incluye marca, modelo y vendedor cuando existen', async () => {
+  const g = store.list('groups').find((x) => x.name === 'Compra y venta La Habana');
+  const csv = await fetch(`${base}/api/admin/groups/${g.id}/export`, { headers: { Cookie: adminCookie } });
+  const text = Buffer.from(await csv.arrayBuffer()).subarray(3).toString('utf8');
+  assert.match(text.split(/\r\n/)[0], /brand,model,seller$/);
+  assert.match(text, /Ana M\./);
+});

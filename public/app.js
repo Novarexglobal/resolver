@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
-const state = { config: null, user: null, groups: [], lastFilters: null };
+const state = { config: null, user: null, groups: [], search: null };
 // El contenido de #results lo genera este script; se vacía el marcador inicial.
 $('results').replaceChildren();
 
@@ -24,6 +24,8 @@ function el(tag, attrs = {}, ...children) {
 const money = (v, cur) => (v == null ? '—' : `${new Intl.NumberFormat('es', { maximumFractionDigits: 2 }).format(v)} ${cur}`);
 const dateText = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 const shortDay = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('es', { day: '2-digit', month: '2-digit' }) : '');
+// Hoy en Cuba, no en UTC: después de las 7 p. m. en Cuba la fecha UTC ya es del día siguiente
+const todayHavana = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Havana', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 function toast(message) {
   const t = $('toast');
@@ -113,7 +115,7 @@ async function enterApp() {
   $('who').textContent = state.user.username;
   $('admin-link').classList.toggle('hidden', state.user.role !== 'superadmin');
   if (!state.config) await loadConfig();
-  setView('buscar');
+  setView('inicio');
 }
 
 // ---------- configuración y filtros ----------
@@ -123,7 +125,7 @@ async function loadConfig() {
   for (const p of provinces) $('province').append(el('option', { value: p, text: p }));
   for (const c of categories) $('category').append(el('option', { value: c, text: c }));
   $('days').querySelector('option[value="30"]').textContent = `Últimos ${maxPeriodDays} días`;
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Havana', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); // hora de Cuba, no UTC
+  const today = todayHavana();
   $('end').max = today;
   $('end').value = today;
 }
@@ -146,14 +148,18 @@ async function loadMunicipalities(province, selected = '') {
 $('province').addEventListener('change', (e) => loadMunicipalities(e.target.value));
 
 // ---------- navegación ----------
+const VIEWS = ['inicio', 'buscar', 'grupos', 'historial', 'reportes'];
+
 function setView(name) {
-  for (const v of ['buscar', 'grupos', 'historial', 'reportes']) $(`view-${v}`).classList.toggle('hidden', v !== name);
+  for (const v of VIEWS) $(`view-${v}`).classList.toggle('hidden', v !== name);
   document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+  if (name === 'inicio') loadDashboard();
   if (name === 'grupos') loadGroups();
   if (name === 'historial') loadHistory();
 }
 
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.go)));
 
 // ---------- búsqueda ----------
 $('search-form').addEventListener('submit', (e) => {
@@ -164,6 +170,9 @@ $('search-form').addEventListener('submit', (e) => {
 function collectFilters() {
   return {
     q: $('q').value.trim(),
+    brand: $('brand').value.trim(),
+    model: $('model').value.trim(),
+    sort: $('sort').value,
     province: $('province').value,
     municipality: $('municipality').value,
     category: $('category').value,
@@ -172,22 +181,40 @@ function collectFilters() {
   };
 }
 
+// Una búsqueda nueva reemplaza la anterior; "Cargar más" pide la página siguiente con el mismo filtro
 async function runSearch(f) {
+  state.search = { filters: f, nextOffset: null };
+  await fetchSearch(false);
+}
+
+async function fetchSearch(more) {
+  if (!state.search) return;
   const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(f)) if (v) params.set(k, v);
+  for (const [k, v] of Object.entries(state.search.filters)) if (v) params.set(k, v);
+  if (more) params.set('offset', String(state.search.nextOffset));
   const btn = $('search-submit');
-  btn.disabled = true;
-  btn.textContent = 'Buscando…';
-  $('results').classList.remove('hidden');
-  $('search-alerts').replaceChildren();
-  $('results').replaceChildren(el('div', { class: 'card' }, el('div', { class: 'skeleton' }), el('div', { class: 'skeleton', style: 'width:60%' })));
+  const moreBtn = $('more-btn');
+  if (more) {
+    if (moreBtn) { moreBtn.disabled = true; moreBtn.textContent = 'Cargando…'; }
+  } else {
+    btn.disabled = true;
+    btn.textContent = 'Buscando…';
+    $('results').classList.remove('hidden');
+    $('search-alerts').replaceChildren();
+    $('results').replaceChildren(el('div', { class: 'card' }, el('div', { class: 'skeleton' }), el('div', { class: 'skeleton', style: 'width:60%' })));
+  }
   try {
     const data = await api(`/api/search?${params}`);
-    state.lastFilters = f;
-    renderResults(data);
+    if (more) appendResults(data);
+    else renderResults(data);
   } catch (err) {
-    $('results').classList.add('hidden');
-    $('search-alerts').replaceChildren(el('div', { class: 'alert error', role: 'alert', text: err.message }));
+    if (more) {
+      toast(err.message);
+      if (moreBtn) { moreBtn.disabled = false; moreBtn.textContent = 'Cargar más'; }
+    } else {
+      $('results').classList.add('hidden');
+      $('search-alerts').replaceChildren(el('div', { class: 'alert error', role: 'alert', text: err.message }));
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = 'Buscar';
@@ -258,6 +285,7 @@ function evolutionChart(series, cur) {
 }
 
 function postCard(p) {
+  const specs = [p.brand, p.model].filter(Boolean).join(' · ');
   return el(
     'article',
     { class: 'post' },
@@ -267,9 +295,11 @@ function postCard(p) {
       { class: 'body' },
       el('div', { class: 'price', text: money(p.price, p.currency) }),
       el('h3', { text: p.product }),
+      specs ? el('div', { class: 'meta', text: `Marca y modelo: ${specs}` }) : null,
       el('div', { class: 'meta', text: [p.municipality, p.province].filter(Boolean).join(' · ') }),
       el('div', { class: 'meta', text: `${dateText(p.published_at)} · ${p.category || 'Otros'}` }),
       p.description ? el('div', { class: 'desc', text: p.description }) : null,
+      el('div', { class: 'seller', text: p.seller ? `Vendedor: ${p.seller}` : 'Vendedor: no indicado en la fuente' }),
       el('div', { class: 'meta', text: `Grupo: ${p.group_name}` }),
       el(
         'div',
@@ -283,8 +313,84 @@ function postCard(p) {
   );
 }
 
+// Contador y botón "Cargar más" a partir de la respuesta de búsqueda
+function updateCount(data) {
+  state.search.nextOffset = data.next_offset;
+  const shown = data.next_offset ?? data.total;
+  $('count-text').textContent = data.total ? `Mostrando ${shown} de ${data.total}` : '0 resultados';
+  $('more-wrap').replaceChildren();
+  if (data.next_offset !== null) {
+    const remaining = data.total - data.next_offset;
+    $('more-wrap').append(
+      el('button', { type: 'button', id: 'more-btn', class: 'secondary', text: `Cargar más (${remaining} restantes)`, onclick: () => fetchSearch(true) }),
+    );
+  }
+}
+
+function appendResults(data) {
+  $('posts-list').append(...data.results.map(postCard));
+  updateCount(data);
+}
+
+function signalCard(signals, period) {
+  return el(
+    'div',
+    { class: 'card' },
+    el('h3', { text: 'Señales de mercado' }),
+    signals.length
+      ? el(
+          'div',
+          { class: 'list' },
+          signals.map((s) =>
+            el(
+              'div',
+              { class: 'list-item' },
+              el(
+                'div',
+                {},
+                el('div', { class: 'title', text: s.text }),
+                el('div', { class: 'signal-meta', text: `${s.evidence ?? ''} Período: ${dateText(period.start)} – ${dateText(period.end)}` }),
+              ),
+              el('span', { class: 'conf', text: `Confianza ${s.confidence ?? 'baja'}` }),
+            ),
+          ),
+        )
+      : el('p', { class: 'muted', style: 'margin:0', text: 'Sin señales: hacen falta más publicaciones y varios días con datos.' }),
+  );
+}
+
+function outlierCard(outliers) {
+  return el(
+    'div',
+    { class: 'card' },
+    el('h3', { text: 'Precios atípicos' }),
+    el('p', { class: 'muted', style: 'margin:0 0 10px;font-size:0.85rem', text: 'Se alejan mucho del rango habitual de su mismo producto y moneda. Pueden ser errores de publicación; compruébalo en la fuente.' }),
+    el(
+      'div',
+      { class: 'list' },
+      outliers.map((o) =>
+        el(
+          'div',
+          { class: 'list-item' },
+          el(
+            'div',
+            {},
+            el('div', { class: 'title', text: `${o.product} · ${money(o.price, o.currency)}` }),
+            el('div', {
+              class: o.direction === 'bajo' ? 'outlier-low' : 'outlier-high',
+              text: `${o.direction === 'bajo' ? 'Por debajo' : 'Por encima'} de la mediana (${money(o.median, o.currency)})`,
+            }),
+            el('div', { class: 'muted', text: `${[o.municipality, o.province].filter(Boolean).join(', ')} · ${dateText(o.published_at)}` }),
+          ),
+          o.source_url ? el('a', { href: o.source_url, target: '_blank', rel: 'noopener noreferrer', text: 'Ver' }) : null,
+        ),
+      ),
+    ),
+  );
+}
+
 function renderResults(data) {
-  const { analysis: a, period, filters, total, truncated, results } = data;
+  const { analysis: a, period, filters, total, results } = data;
   $('results').replaceChildren();
   const q = filters.q ? `Resultados para “${filters.q}”` : 'Resultados del período';
   const header = el(
@@ -307,16 +413,8 @@ function renderResults(data) {
 
   if (a.warnings.length) $('results').append(el('div', {}, a.warnings.map((w) => el('div', { class: 'alert warn', text: w }))));
 
-  $('results').append(
-    el(
-      'div',
-      { class: 'card' },
-      el('h3', { text: 'Señales de mercado' }),
-      a.signals.length
-        ? el('div', { class: 'list' }, a.signals.map((s) => el('div', { class: 'list-item', text: s.text })))
-        : el('p', { class: 'muted', style: 'margin:0', text: 'Sin señales: hacen falta más publicaciones y varios días con datos.' }),
-    ),
-  );
+  $('results').append(signalCard(a.signals, period));
+  if (a.outliers && a.outliers.length) $('results').append(outlierCard(a.outliers));
 
   const series = Object.entries(a.evolution).filter(([, s]) => s);
   const evoBody = series.length
@@ -334,19 +432,168 @@ function renderResults(data) {
     ),
   );
 
-  const countText = truncated ? `Mostrando ${results.length} de ${total}` : `${total} resultado(s)`;
-  const grid = results.length
-    ? el('div', { class: 'posts' }, results.map(postCard))
-    : el('p', { class: 'muted', text: 'No hay publicaciones con estos filtros y período.' });
+  const list = el(
+    'div',
+    { class: 'posts', id: 'posts-list' },
+    results.length ? results.map(postCard) : el('p', { class: 'muted', text: 'No hay publicaciones con estos filtros y período.' }),
+  );
   $('results').append(
     el(
       'div',
       { class: 'card' },
-      el('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, el('h3', { style: 'margin:0', text: 'Publicaciones' }), el('span', { class: 'muted', text: countText })),
-      grid,
+      el('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, el('h3', { style: 'margin:0', text: 'Publicaciones' }), el('span', { class: 'muted', id: 'count-text' })),
+      list,
+      el('div', { id: 'more-wrap', style: 'margin-top:12px' }),
     ),
   );
+  updateCount(data);
   $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ---------- inicio ----------
+async function loadDashboard() {
+  try {
+    const data = await api('/api/dashboard');
+    renderDashboard(data);
+  } catch (err) {
+    $('dash-market').replaceChildren(el('div', { class: 'alert error', role: 'alert', text: err.message }));
+  }
+}
+
+const filtersText = (s) => [s.filters?.brand, s.filters?.model, s.filters?.province, s.filters?.municipality, s.filters?.category, `${s.period.days} día(s) hasta ${dateText(s.period.end)}`].filter(Boolean).join(' · ');
+
+function priceSummaryText(prices) {
+  const parts = Object.entries(prices || {}).map(([cur, s]) =>
+    s.sufficient ? `${cur}: promedio ${money(s.avg, cur)}, mediana ${money(s.median, cur)}` : `${cur}: ${s.count} dato(s), insuficientes`,
+  );
+  return parts.length ? parts.join(' · ') : 'Sin precios para estadística';
+}
+
+function openPeriod(period) {
+  $('q').value = '';
+  $('brand').value = '';
+  $('model').value = '';
+  $('sort').value = 'fecha_desc';
+  $('province').value = '';
+  loadMunicipalities('');
+  $('category').value = '';
+  $('days').value = String(period.days);
+  $('end').value = period.end;
+  setView('buscar');
+  runSearch(collectFilters());
+}
+
+function searchProduct(name) {
+  $('q').value = name;
+  $('brand').value = '';
+  $('model').value = '';
+  $('sort').value = 'fecha_desc';
+  $('days').value = String(state.config.maxPeriodDays);
+  $('end').value = todayHavana();
+  setView('buscar');
+  runSearch(collectFilters());
+}
+
+function renderDashboard(d) {
+  const m = d.market;
+  $('dash-period').textContent = `${dateText(d.period.start)} – ${dateText(d.period.end)}`;
+
+  $('dash-market').replaceChildren(
+    stat('Publicaciones', String(m.posts_total), m.coverage_from ? `Desde ${dateText(m.coverage_from)}` : 'Sin datos aún'),
+    stat('Últimos 7 días', String(m.posts_last_7_days), 'publicaciones observadas'),
+    stat('Últimos 30 días', String(m.posts_period), `${m.provinces_in_period} provincia(s)`),
+    stat('Grupos con datos', String(m.groups_with_data), 'grupos activos'),
+  );
+
+  const recent = d.recent_searches || [];
+  $('dash-recent').replaceChildren(
+    ...(recent.length
+      ? recent.map((s) => el('button', { type: 'button', class: 'secondary chip', text: `${s.q || 'Sin texto'} · ${s.period.days} d`, onclick: () => repeatSearch(s) }))
+      : [el('p', { class: 'empty', text: 'Todavía no has hecho búsquedas.' })]),
+  );
+
+  const analyses = recent.filter((s) => s.summary);
+  $('dash-analyses').replaceChildren(
+    ...(analyses.length
+      ? analyses.map((s) =>
+          el(
+            'div',
+            { class: 'list-item' },
+            el('div', {}, el('div', { class: 'title', text: s.q || '(sin texto)' }), el('div', { class: 'muted', text: filtersText(s) }), el('div', { class: 'muted', text: `${s.total} resultado(s) · ${priceSummaryText(s.summary.prices)}` })),
+            el('button', { type: 'button', class: 'small secondary', text: 'Repetir', onclick: () => repeatSearch(s) }),
+          ),
+        )
+      : [el('p', { class: 'empty', text: 'Los análisis aparecerán aquí cuando hagas búsquedas.' })]),
+  );
+
+  $('dash-signals').replaceChildren(
+    ...(d.signals.length
+      ? d.signals.map((s) =>
+          el(
+            'div',
+            { class: 'list-item' },
+            el(
+              'div',
+              {},
+              el('div', { class: 'title', text: s.text }),
+              el('div', { class: 'signal-meta', text: `${s.evidence ?? ''} Período: ${dateText(s.period.start)} – ${dateText(s.period.end)}` }),
+              el('span', { class: 'conf', text: `Confianza ${s.confidence ?? 'baja'}` }),
+            ),
+            el('button', { type: 'button', class: 'small secondary', text: 'Ver análisis', onclick: () => openPeriod(s.period) }),
+          ),
+        )
+      : [el('p', { class: 'empty', text: 'Sin señales: hacen falta más publicaciones y varios días con datos.' })]),
+  );
+
+  const minDays = state.config?.minDistinctDays ?? 2;
+  $('dash-evolution').replaceChildren(
+    d.evolution && d.primary_currency
+      ? el('div', {}, el('div', { class: 'muted', text: `Precio medio diario · ${d.primary_currency}` }), evolutionChart(d.evolution, d.primary_currency))
+      : el('p', { class: 'empty', text: `Se necesitan publicaciones en al menos ${minDays} días distintos del último mes.` }),
+  );
+
+  $('dash-featured').replaceChildren(
+    ...(d.featured.length
+      ? d.featured.map((f) => {
+          const cur = Object.entries(f.byCurrency);
+          const priceLine = cur.length
+            ? cur.map(([c, s]) => `${c}: mediana ${money(s.median, c)}`).join(' · ')
+            : 'Pocos precios para estadística';
+          return el(
+            'div',
+            { class: 'list-item' },
+            el('div', {}, el('div', { class: 'title', text: f.name }), el('div', { class: 'muted', text: `${f.posts} publicación(es) en ${f.groups} grupo(s)` }), el('div', { class: 'muted', text: priceLine })),
+            el('button', { type: 'button', class: 'small secondary', text: 'Buscar', onclick: () => searchProduct(f.name) }),
+          );
+        })
+      : [el('p', { class: 'empty', text: 'Ningún producto aparece en al menos 2 publicaciones del último mes.' })]),
+  );
+
+  $('dash-provinces').replaceChildren(
+    ...(d.provinces.length
+      ? d.provinces.map((p) =>
+          el(
+            'div',
+            { class: 'list-item' },
+            el('div', {}, el('div', { class: 'title', text: p.province }), el('div', { class: 'muted', text: `${p.posts} publicación(es)` })),
+            el('div', { class: 'muted', text: p.avg != null ? `${money(p.avg, p.currency)} promedio` : 'Sin precio suficiente' }),
+          ),
+        )
+      : [el('p', { class: 'empty', text: 'Sin publicaciones en el último mes.' })]),
+  );
+
+  $('dash-activity').replaceChildren(
+    ...(d.activity.length
+      ? d.activity.map((a) =>
+          el(
+            'div',
+            { class: 'list-item' },
+            el('div', {}, el('div', { class: 'title', text: a.group_name }), el('div', { class: 'muted', text: `Carga del ${dateText(a.day)} · ${a.inserted ?? 0} nueva(s) de ${a.received ?? 0}` })),
+            el('span', { class: 'badge', text: `${a.duplicates ?? 0} repetida(s)` }),
+          ),
+        )
+      : [el('p', { class: 'empty', text: 'Todavía no hay cargas registradas.' })]),
+  );
 }
 
 // ---------- grupos ----------
@@ -398,12 +645,11 @@ async function loadHistory() {
     list.replaceChildren();
     if (!searches.length) list.append(el('p', { class: 'muted', text: 'Todavía no has hecho búsquedas.' }));
     for (const s of searches) {
-      const parts = [s.filters.province, s.filters.municipality, s.filters.category, `${s.period.days} día(s) hasta ${dateText(s.period.end)}`].filter(Boolean);
       list.append(
         el(
           'div',
           { class: 'list-item' },
-          el('div', {}, el('div', { class: 'title', text: s.q || '(sin texto)' }), el('div', { class: 'muted', text: `${parts.join(' · ')} · ${s.total} resultado(s)` })),
+          el('div', {}, el('div', { class: 'title', text: s.q || '(sin texto)' }), el('div', { class: 'muted', text: `${filtersText(s)} · ${s.total} resultado(s)` })),
           el(
             'div',
             { class: 'row' },
@@ -420,6 +666,9 @@ async function loadHistory() {
 
 async function repeatSearch(s) {
   $('q').value = s.q || '';
+  $('brand').value = s.filters.brand || '';
+  $('model').value = s.filters.model || '';
+  $('sort').value = s.filters.sort || 'fecha_desc';
   $('province').value = s.filters.province || '';
   await loadMunicipalities(s.filters.province, s.filters.municipality);
   $('category').value = s.filters.category || '';

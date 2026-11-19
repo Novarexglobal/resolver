@@ -96,6 +96,10 @@ export function validatePost(raw, index, now = new Date()) {
       description: get('description').slice(0, 1000),
       source_url,
       image_url: isHttpUrl(get('image_url')) ? get('image_url') : '',
+      // Opcionales: solo se guardan si la fuente los publica; no se deducen ni se inventan
+      brand: get('brand').slice(0, 60),
+      model: get('model').slice(0, 60),
+      seller: get('seller').slice(0, 120),
     },
   };
 }
