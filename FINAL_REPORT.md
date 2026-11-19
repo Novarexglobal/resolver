@@ -30,7 +30,7 @@ Este informe es honesto: indica lo que funciona, lo que no está construido toda
 Estas funciones de la especificación **no están construidas** o están solo parcialmente:
 
 - **Inicio** (Módulo 1): construido. Cifras reales de publicaciones y cobertura, últimas búsquedas y análisis del usuario, señales, productos con presencia (no demanda), evolución de precios, provincias y actividad de cargas. Sin datos, muestra estados vacíos. Pendiente: accesos a la información de cada módulo (Módulo 11).
-- **Buscador** (Módulo 2): construido: marca, modelo, orden por precio o fecha, paginación con «Cargar más» y vendedor cuando la fuente lo publica. Pendiente: fotografías subidas (hoy solo enlaces de imagen) y los datos de contacto del vendedor, que no se guardan a propósito por privacidad.
+- **Buscador** (Módulo 2): construido: marca, modelo, orden por precio o fecha, paginación con «Cargar más» y vendedor cuando la fuente lo publica. Pendiente: fotografías subidas (hoy solo enlaces de imagen). Los datos de contacto del vendedor (`seller_contact`) se guardan cuando el administrador los carga desde una publicación pública; son visibles para los usuarios registrados.
 - **Análisis** (Módulo 3): construido: precios atípicos (rango intercuartílico, mínimo 5 publicaciones por producto y moneda) y aviso cuando hay varias monedas. Pendiente: comparación entre períodos, análisis por categoría y comparación entre municipios.
 - **Señales** (Módulo 4): cuatro tipos (tendencia de precio, diferencia entre provincias, concentración de fuente y, en análisis, precios atípicos). Cada señal muestra evidencia y nivel de confianza. Pendiente: persistencia de señales, aumentos o disminuciones de publicaciones, presencia creciente y oportunidades de compra y reventa.
 - **Historial** (Módulo 5): solo historial de búsquedas. Faltan análisis guardados, señales, búsquedas guardadas y comparación entre resultados anteriores.
@@ -67,6 +67,7 @@ Estas funciones de la especificación **no están construidas** o están solo pa
 - El plan gratuito de Render se duerme tras unos 15 minutos sin uso. La primera carga tarda unos 30 segundos.
 - Sin límite de intentos en el registro de usuarios, solo en el inicio de sesión.
 - Las imágenes de publicaciones se muestran desde el enlace original; si el enlace deja de existir, la imagen no se verá.
+- Datos personales: los teléfonos y contactos de vendedores cargados son visibles para todos los usuarios registrados. El titular es responsable de su tratamiento según la normativa que aplique; conviene revisar la base legal antes de ampliar el acceso a la app.
 
 ## 7. Cómo ejecutar
 

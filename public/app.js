@@ -284,6 +284,13 @@ function evolutionChart(series, cur) {
   return svg;
 }
 
+// Contacto tal como lo publicó el vendedor. Si parece un teléfono, se ofrece como enlace de llamada.
+function sellerContact(value) {
+  const digits = value.replace(/[^\d+]/g, '');
+  const looksLikePhone = /^\+?\d{6,}$/.test(digits);
+  return el('div', { class: 'seller' }, 'Contacto: ', looksLikePhone ? el('a', { href: `tel:${digits}`, text: value }) : value);
+}
+
 function postCard(p) {
   const specs = [p.brand, p.model].filter(Boolean).join(' · ');
   return el(
@@ -300,6 +307,7 @@ function postCard(p) {
       el('div', { class: 'meta', text: `${dateText(p.published_at)} · ${p.category || 'Otros'}` }),
       p.description ? el('div', { class: 'desc', text: p.description }) : null,
       el('div', { class: 'seller', text: p.seller ? `Vendedor: ${p.seller}` : 'Vendedor: no indicado en la fuente' }),
+      p.seller_contact ? sellerContact(p.seller_contact) : null,
       el('div', { class: 'meta', text: `Grupo: ${p.group_name}` }),
       el(
         'div',

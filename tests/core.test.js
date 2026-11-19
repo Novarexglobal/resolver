@@ -132,6 +132,8 @@ test('marca, modelo y vendedor son opcionales y se guardan solo si vienen', () =
   const none = validatePost(base, 0, NOW);
   assert.equal(none.post.brand, '');
   assert.equal(none.post.seller, '');
+  const withPhone = validatePost({ ...base, seller_contact: '+53 5 555 1234' }, 0, NOW);
+  assert.equal(withPhone.post.seller_contact, '+53 5 555 1234');
 });
 
 test('filtro por marca y modelo: campo propio o frase completa, nunca subcadena', () => {

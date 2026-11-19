@@ -57,6 +57,7 @@ const publicPost = (p) => ({
   brand: p.brand || '',
   model: p.model || '',
   seller: p.seller || '',
+  seller_contact: p.seller_contact || '',
 });
 
 /** Valida y canonicaliza un enlace de grupo de Facebook. */
@@ -442,7 +443,7 @@ export function createApp(store, options = {}) {
     requireSuper(ctx);
     const group = store.get('groups', (g) => g.id === ctx.params.id);
     if (!group) throw new HttpError(404, 'Grupo no encontrado.');
-    const cols = ['published_at', 'product', 'price', 'currency', 'province', 'municipality', 'category', 'description', 'source_url', 'image_url', 'brand', 'model', 'seller'];
+    const cols = ['published_at', 'product', 'price', 'currency', 'province', 'municipality', 'category', 'description', 'source_url', 'image_url', 'brand', 'model', 'seller', 'seller_contact'];
     const esc = (v) => {
       const s = v == null ? '' : String(v);
       return /[",;\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

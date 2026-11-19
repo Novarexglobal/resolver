@@ -234,7 +234,7 @@ test('búsqueda por marca y modelo, orden por precio y paginación', async () =>
   userCookie = login.cookie;
   const src = 'https://www.facebook.com/groups/ventas-habana/posts/';
   const rows = [
-    { product: 'Samsung A15', brand: 'Samsung', model: 'A15', price: 250, currency: 'USD', province: 'La Habana', municipality: 'Playa', published_at: '2026-11-15', seller: 'Ana M.', source_url: src + '50' },
+    { product: 'Samsung A15', brand: 'Samsung', model: 'A15', price: 250, currency: 'USD', province: 'La Habana', municipality: 'Playa', published_at: '2026-11-15', seller: 'Ana M.', seller_contact: '+53 5 555 1234', source_url: src + '50' },
     { product: 'iPhone 13 caja', price: 600, currency: 'USD', province: 'La Habana', municipality: 'Playa', published_at: '2026-11-14', source_url: src + '51' },
     { product: 'Refrigerador Haier', brand: 'Haier', model: 'HRF', price: 40000, currency: 'CUP', province: 'La Habana', municipality: 'Playa', published_at: '2026-11-13', source_url: src + '52' },
   ];
@@ -245,6 +245,7 @@ test('búsqueda por marca y modelo, orden por precio y paginación', async () =>
   const byBrand = await call('GET', `/api/search?brand=samsung&days=30&end=${today}`, { cookie: userCookie });
   assert.equal(byBrand.json.total, 1);
   assert.equal(byBrand.json.results[0].seller, 'Ana M.');
+  assert.equal(byBrand.json.results[0].seller_contact, '+53 5 555 1234');
   assert.equal((await call('GET', `/api/search?model=HRF&days=30&end=${today}`, { cookie: userCookie })).json.total, 1);
 
   const searchUrl = `/api/search?province=La%20Habana&days=30&end=${today}&sort=precio_asc`;
@@ -283,6 +284,7 @@ test('la exportación incluye marca, modelo y vendedor cuando existen', async ()
   const g = store.list('groups').find((x) => x.name === 'Compra y venta La Habana');
   const csv = await fetch(`${base}/api/admin/groups/${g.id}/export`, { headers: { Cookie: adminCookie } });
   const text = Buffer.from(await csv.arrayBuffer()).subarray(3).toString('utf8');
-  assert.match(text.split(/\r\n/)[0], /brand,model,seller$/);
+  assert.match(text.split(/\r\n/)[0], /brand,model,seller,seller_contact$/);
+  assert.match(text, /\+53 5 555 1234/);
   assert.match(text, /Ana M\./);
 });

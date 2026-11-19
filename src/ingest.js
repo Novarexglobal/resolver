@@ -100,6 +100,7 @@ export function validatePost(raw, index, now = new Date()) {
       brand: get('brand').slice(0, 60),
       model: get('model').slice(0, 60),
       seller: get('seller').slice(0, 120),
+      seller_contact: get('seller_contact').slice(0, 120),
     },
   };
 }
