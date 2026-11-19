@@ -107,3 +107,19 @@ test('enlaces de grupo: solo Facebook, se normalizan', () => {
   assert.throws(() => canonicalGroupUrl('http://facebook.com/groups/abc'));
   assert.throws(() => canonicalGroupUrl('https://facebook.com/marketplace/x'));
 });
+
+test('carga rápida por líneas: 8 campos, vacíos permitidos, errores por línea', async () => {
+  const { parseLines, validateBatch } = await import('../src/ingest.js');
+  const rows = parseLines([
+    '# comentario ignorado',
+    'iPhone 16 | 950 | USD | La Habana | Playa | 2026-11-16 | Nuevo con caja | https://www.facebook.com/groups/x/posts/1',
+    'Samsung A15 | 250 |  | Matanzas |  | 2026-11-16 |  | ',
+    'mal | línea',
+  ].join('\n'));
+  assert.equal(rows.length, 3);
+  const { posts, errors } = validateBatch(rows, NOW);
+  assert.equal(posts.length, 2);
+  assert.equal(posts[1].currency, 'CUP');
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /8 campos/);
+});

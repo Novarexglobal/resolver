@@ -147,7 +147,7 @@ test('las cargas y los grupos no se borran; cada carga queda registrada', async 
 });
 
 test('búsqueda con filtros, análisis y trazabilidad a la fuente', async () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Havana', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); // hora de Cuba, igual que el servidor
   const r = await call('GET', `/api/search?q=iphone&province=La%20Habana&days=30&end=${today}`, { cookie: userCookie });
   assert.equal(r.status, 200);
   assert.equal(r.json.total, 2);
@@ -189,4 +189,38 @@ test('seguridad: escrituras exigen JSON y no hay salida de la carpeta pública',
   const page = await fetch(base + '/');
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-security-policy'), /default-src 'self'/);
+});
+
+test('carga rápida por líneas desde la API y descarga CSV del historial', async () => {
+  const g = store.list('groups').find((x) => x.name === 'Teléfonos Matanzas');
+  const lines = 'iPhone 13 | 700 | USD | Matanzas | Cárdenas | 2026-11-15 | Usado, con caja | https://www.facebook.com/groups/telefonos-matanzas/posts/9';
+  const r = await call('POST', '/api/admin/imports', { cookie: adminCookie, body: { group_id: g.id, format: 'lines', content: lines } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.inserted, 1);
+  const logs = await call('GET', '/api/admin/imports', { cookie: adminCookie });
+  assert.equal(logs.json.imports[0].format, 'lines');
+
+  const csv = await fetch(`${base}/api/admin/groups/${g.id}/export`, { headers: { Cookie: adminCookie } });
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers.get('content-type'), /text\/csv/);
+  assert.match(csv.headers.get('content-disposition'), /attachment; filename="resolver-Telefonos-Matanzas.csv"/);
+  const raw = Buffer.from(await csv.arrayBuffer());
+  assert.deepEqual([...raw.subarray(0, 3)], [0xef, 0xbb, 0xbf]); // BOM UTF-8 para Excel
+  const body = raw.subarray(3).toString('utf8');
+  assert.match(body, /^published_at,product,price/);
+  assert.match(body, /"Usado, con caja"/);
+  assert.equal(body.trim().split(/\r\n/).length, 2); // cabecera + 1 publicación
+});
+
+test('el administrador restablece la contraseña de un usuario y se cierran sus sesiones', async () => {
+  const users = await call('GET', '/api/admin/users', { cookie: adminCookie });
+  const vendedor = users.json.users.find((u) => u.username === 'vendedor_1');
+  const short = await call('PATCH', `/api/admin/users/${vendedor.id}`, { cookie: adminCookie, body: { password: 'corta' } });
+  assert.equal(short.status, 400);
+  const ok = await call('PATCH', `/api/admin/users/${vendedor.id}`, { cookie: adminCookie, body: { password: 'nueva-clave-2026' } });
+  assert.equal(ok.status, 200);
+  const old = await call('POST', '/api/auth/login', { body: { username: 'vendedor_1', password: USER_PASS } });
+  assert.equal(old.status, 401);
+  const nueva = await call('POST', '/api/auth/login', { body: { username: 'vendedor_1', password: 'nueva-clave-2026' } });
+  assert.equal(nueva.status, 200);
 });

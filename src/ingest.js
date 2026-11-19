@@ -59,6 +59,7 @@ function isHttpUrl(value) {
  * Nunca inventa campos: lo que no viene, queda vacío o se rechaza.
  */
 export function validatePost(raw, index, now = new Date()) {
+  if (raw.__error) return { error: { row: index + 1, message: raw.__error } };
   const errors = [];
   const get = (k) => (raw[k] === undefined || raw[k] === null ? '' : String(raw[k]).trim());
 
@@ -111,6 +112,28 @@ export function validateBatch(rows, now = new Date()) {
     else posts.push(result.post);
   });
   return { posts, errors };
+}
+
+const LINE_FIELDS = ['product', 'price', 'currency', 'province', 'municipality', 'published_at', 'description', 'source_url'];
+
+/**
+ * Carga rápida para escribir desde el teléfono: una publicación por línea.
+ * Campos separados por |, siempre 8, aunque alguno vaya vacío:
+ *   producto | precio | moneda | provincia | municipio | fecha | descripción | enlace
+ * Las líneas vacías y las que empiezan por # se ignoran.
+ */
+export function parseLines(text) {
+  return String(text ?? '')
+    .split(/\r?\n/)
+    .map((line, i) => ({ line: line.trim(), n: i + 1 }))
+    .filter(({ line }) => line && !line.startsWith('#'))
+    .map(({ line, n }) => {
+      const parts = line.split('|').map((p) => p.trim());
+      if (parts.length !== LINE_FIELDS.length) {
+        return { __error: `Línea ${n}: se esperaban ${LINE_FIELDS.length} campos separados por | y hay ${parts.length}.` };
+      }
+      return Object.fromEntries(LINE_FIELDS.map((k, idx) => [k, parts[idx]]));
+    });
 }
 
 /** Acepta JSON (lista de objetos) o CSV con cabeceras. */

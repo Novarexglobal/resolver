@@ -298,7 +298,7 @@ async function groupSelect(id, selected = '') {
 
 async function renderImport() {
   const select = await groupSelect('imp-group', state.focusGroupId);
-  const format = el('select', { id: 'imp-format' }, el('option', { value: 'csv', text: 'CSV (con cabeceras)' }), el('option', { value: 'json', text: 'JSON (lista de objetos)' }));
+  const format = el('select', { id: 'imp-format' }, el('option', { value: 'csv', text: 'CSV (con cabeceras)' }), el('option', { value: 'json', text: 'JSON (lista de objetos)' }), el('option', { value: 'lines', text: 'Rápido: una línea por publicación (campos separados por |)' }));
   const textarea = el('textarea', { id: 'imp-content', placeholder: 'product,price,currency,province,municipality,published_at,description,source_url\niPhone 16,950,USD,La Habana,Playa,2026-11-16,Nuevo con caja,https://www.facebook.com/groups/.../posts/...' });
   const file = el('input', { type: 'file', accept: '.csv,.json,text/csv,application/json', id: 'imp-file' });
   file.addEventListener('change', async () => {
@@ -379,6 +379,7 @@ async function loadHistory(groupId, box) {
       stat('Última carga', g.last_import_day || 'Nunca'),
       stat('Cargas registradas', h.imports.length),
     ),
+    el('a', { href: `/api/admin/groups/${groupId}/export`, download: '', class: 'badge', text: 'Descargar historial completo (CSV)' }),
     el('h3', { text: 'Resumen mensual' }),
     table(['Mes', 'Publicaciones', 'Precios observados'], monthRows),
     el('h3', { text: 'Registro de cargas', style: 'margin-top:16px' }),
@@ -454,30 +455,51 @@ async function loadPostRows(groupId, box) {
 // ---------- usuarios ----------
 async function renderUsers() {
   const { users } = await api('/api/admin/users');
-  const rows = users.map((u) =>
-    el(
+  const rows = users.map((u) => {
+    const pass = el('input', { type: 'password', placeholder: 'Nueva contraseña', autocomplete: 'new-password', maxlength: 200 });
+    const actions = u.role === 'superadmin'
+      ? el('span', { class: 'muted', text: '—' })
+      : el(
+          'div',
+          { class: 'row' },
+          pass,
+          el('button', {
+            type: 'button',
+            class: 'small',
+            text: 'Restablecer',
+            onclick: async () => {
+              if (pass.value.length < 10) return toast('La contraseña nueva debe tener al menos 10 caracteres.');
+              if (!window.confirm(`¿Restablecer la contraseña de "${u.username}"? Se cerrarán sus sesiones abiertas.`)) return;
+              try {
+                await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body: { password: pass.value } });
+                toast('Contraseña restablecida. Entrégasela al usuario de forma segura.');
+                pass.value = '';
+              } catch (err) {
+                toast(err.message);
+              }
+            },
+          }),
+          el('button', {
+            type: 'button',
+            class: 'small secondary',
+            text: u.disabled ? 'Activar' : 'Desactivar',
+            onclick: async () => {
+              await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body: { disabled: !u.disabled } });
+              showPanel('usuarios');
+            },
+          }),
+        );
+    return el(
       'tr',
       {},
       td(el('strong', { text: u.username })),
       td(u.role === 'superadmin' ? el('span', { class: 'badge', text: 'Superadministrador' }) : 'Usuario'),
       td(el('span', { class: `badge ${u.disabled ? 'bad' : 'ok'}`, text: u.disabled ? 'Desactivada' : 'Activa' })),
       td(when(u.created_at)),
-      td(
-        u.role === 'superadmin'
-          ? el('span', { class: 'muted', text: '—' })
-          : el('button', {
-              type: 'button',
-              class: 'small secondary',
-              text: u.disabled ? 'Activar' : 'Desactivar',
-              onclick: async () => {
-                await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body: { disabled: !u.disabled } });
-                showPanel('usuarios');
-              },
-            }),
-      ),
-    ),
-  );
-  $('panel').replaceChildren(card('Usuarios', table(['Usuario', 'Rol', 'Estado', 'Alta', ''], rows)));
+      td(actions),
+    );
+  });
+  $('panel').replaceChildren(card('Usuarios', table(['Usuario', 'Rol', 'Estado', 'Alta', 'Acciones'], rows)));
 }
 
 // ---------- categorías ----------

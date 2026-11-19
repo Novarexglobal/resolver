@@ -27,7 +27,7 @@ import {
   clearFailures,
 } from './auth.js';
 import { analyze, resolvePeriod, filterPosts, dedupe, monthlySummary, todayISO, isDay } from './analysis.js';
-import { validateBatch, validatePost, parseImport } from './ingest.js';
+import { validateBatch, validatePost, parseImport, parseLines } from './ingest.js';
 import { HttpError, sendJson, readJson, serveStatic, securityHeaders } from './http.js';
 
 const MAX_RESULTS = 200;
@@ -311,7 +311,15 @@ export function createApp(store, options = {}) {
     const target = store.get('users', (u) => u.id === ctx.params.id);
     if (!target) throw new HttpError(404, 'Usuario no encontrado.');
     if (target.role === ROLES.SUPERADMIN) throw new HttpError(400, 'No se puede modificar al superadministrador desde aquí.');
-    if (typeof body.disabled !== 'boolean') throw new HttpError(400, 'Indica si la cuenta está desactivada.');
+    // Restablecer contraseña: el administrador define una nueva y se cierran sus sesiones
+    if (body.password !== undefined) {
+      if (!validatePassword(body.password)) throw new HttpError(400, 'La contraseña nueva debe tener al menos 10 caracteres.');
+      store.update('users', target.id, { password_hash: hashPassword(body.password) });
+      for (const s of store.list('sessions', (x) => x.user_id === target.id)) store.remove('sessions', s.id);
+      ctx.json(200, { user: publicUser(store.get('users', (u) => u.id === target.id)) });
+      return;
+    }
+    if (typeof body.disabled !== 'boolean') throw new HttpError(400, 'Indica si la cuenta está desactivada o una contraseña nueva.');
     const updated = store.update('users', target.id, { disabled: body.disabled });
     if (body.disabled) {
       for (const s of store.list('sessions', (x) => x.user_id === target.id)) store.remove('sessions', s.id);
@@ -387,6 +395,29 @@ export function createApp(store, options = {}) {
     ctx.json(200, { imports: store.list('imports').slice().reverse() });
   });
 
+  // Descarga del historial completo de un grupo en CSV (compatible con Excel: BOM UTF-8)
+  add('GET', '/api/admin/groups/:id/export', (ctx) => {
+    requireSuper(ctx);
+    const group = store.get('groups', (g) => g.id === ctx.params.id);
+    if (!group) throw new HttpError(404, 'Grupo no encontrado.');
+    const cols = ['published_at', 'product', 'price', 'currency', 'province', 'municipality', 'category', 'description', 'source_url', 'image_url'];
+    const esc = (v) => {
+      const s = v == null ? '' : String(v);
+      return /[",;\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = store
+      .list('posts', (p) => p.group_id === group.id)
+      .sort((a, b) => (a.published_at < b.published_at ? -1 : a.published_at > b.published_at ? 1 : 0));
+    const csv = [cols.join(','), ...rows.map((p) => cols.map((c) => esc(p[c])).join(','))].join('\r\n');
+    const fileName = group.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'grupo';
+    ctx.res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="resolver-${fileName}.csv"`,
+      'Cache-Control': 'no-store',
+    });
+    ctx.res.end(`﻿${csv}`);
+  });
+
   add('GET', '/api/admin/groups/:id/history', (ctx) => {
     requireSuper(ctx);
     const group = store.get('groups', (g) => g.id === ctx.params.id);
@@ -435,7 +466,9 @@ export function createApp(store, options = {}) {
     if (!group) throw new HttpError(400, 'Selecciona un grupo válido.');
     let rows;
     try {
-      rows = parseImport(body.format === 'json' ? 'application/json' : 'text/csv', body.content);
+      rows = body.format === 'lines'
+        ? parseLines(body.content)
+        : parseImport(body.format === 'json' ? 'application/json' : 'text/csv', body.content);
     } catch (err) {
       throw new HttpError(400, `No se pudo leer el contenido: ${err.message}`);
     }
@@ -453,7 +486,7 @@ export function createApp(store, options = {}) {
       group_name: group.name,
       user_id: ctx.user.id,
       username: ctx.user.username,
-      format: body.format === 'json' ? 'json' : 'csv',
+      format: ['json', 'lines'].includes(body.format) ? body.format : 'csv',
       day: todayISO(),
       received: rows.length,
       valid: posts.length,

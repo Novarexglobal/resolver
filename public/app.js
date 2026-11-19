@@ -123,7 +123,7 @@ async function loadConfig() {
   for (const p of provinces) $('province').append(el('option', { value: p, text: p }));
   for (const c of categories) $('category').append(el('option', { value: c, text: c }));
   $('days').querySelector('option[value="30"]').textContent = `Últimos ${maxPeriodDays} días`;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Havana', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); // hora de Cuba, no UTC
   $('end').max = today;
   $('end').value = today;
 }
