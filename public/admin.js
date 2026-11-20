@@ -452,16 +452,52 @@ async function renderPosts() {
   filter.append(el('option', { value: '', text: 'Todos los grupos' }));
   for (const g of groups) filter.append(el('option', { value: g.id, text: g.name }));
   const tableBox = el('div');
-  $('panel').replaceChildren(card('Publicaciones recientes', el('p', { class: 'muted', text: 'Solo lectura: las publicaciones no se editan ni se borran. Para ver el historial completo de un grupo, usa la sección Historial.' }), el('div', { style: 'margin-bottom:12px' }, filter), tableBox));
+  $('panel').replaceChildren(card('Publicaciones recientes', el('p', { class: 'muted', text: 'Las publicaciones no se editan ni se borran; solo se les puede añadir una foto. Para ver el historial completo de un grupo, usa la sección Historial.' }), el('div', { style: 'margin-bottom:12px' }, filter), tableBox));
   await loadPostRows('', tableBox);
+}
+
+const PHOTO_MAX = 2 * 1024 * 1024;
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''));
+    reader.onerror = () => reject(new Error('No se pudo leer la foto.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Foto: si ya tiene una, se enlaza; si no, se ofrece subirla (JPEG, PNG o WebP, máximo 2 MB)
+function photoControl(p, reload) {
+  if (p.image_url) return el('a', { href: p.image_url, target: '_blank', rel: 'noopener noreferrer', text: 'Ver foto' });
+  const input = el('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', 'aria-label': `Subir foto de ${p.product}` });
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > PHOTO_MAX) {
+      toast('La foto supera 2 MB.');
+      input.value = '';
+      return;
+    }
+    try {
+      const content_base64 = await fileToBase64(file);
+      await api(`/api/admin/posts/${encodeURIComponent(p.id)}/image`, { method: 'POST', body: { content_base64 } });
+      toast('Foto subida.');
+      reload();
+    } catch (err) {
+      toast(err.message);
+      input.value = '';
+    }
+  });
+  return input;
 }
 
 async function loadPostRows(groupId, box) {
   const { posts } = await api(`/api/admin/posts${groupId ? `?group_id=${encodeURIComponent(groupId)}` : ''}`);
   const rows = posts.map((p) =>
-    el('tr', {}, td(p.published_at), td(el('strong', { text: p.product }), el('div', { class: 'muted', text: `${p.municipality || ''} ${p.province}` })), td(money(p.price, p.currency)), td(p.group_name || ''), td(p.source_url ? el('a', { href: p.source_url, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir' }) : el('span', { class: 'badge warn', text: 'Sin enlace' }))),
+    el('tr', {}, td(p.published_at), td(el('strong', { text: p.product }), el('div', { class: 'muted', text: `${p.municipality || ''} ${p.province}` })), td(money(p.price, p.currency)), td(p.group_name || ''), td(p.source_url ? el('a', { href: p.source_url, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir' }) : el('span', { class: 'badge warn', text: 'Sin enlace' })), td(photoControl(p, () => loadPostRows(groupId, box)))),
   );
-  box.replaceChildren(table(['Fecha', 'Producto', 'Precio', 'Grupo', 'Fuente'], rows));
+  box.replaceChildren(table(['Fecha', 'Producto', 'Precio', 'Grupo', 'Fuente', 'Foto'], rows));
 }
 
 // ---------- usuarios ----------
@@ -801,6 +837,11 @@ async function renderSettings() {
       announcement,
       el('div', { class: 'form-grid', style: 'margin-top:12px' }, el('div', {}, el('label', { text: 'Período por defecto de la app' }), days)),
       el('div', { style: 'margin-top:12px' }, saveBtn),
+    ),
+    card(
+      'Copia de seguridad',
+      el('p', { class: 'muted', text: 'Descarga todo el contenido en JSON: grupos, publicaciones, cargas, señales, categorías, fuentes y reportes. No incluye contraseñas, sesiones ni tokens de recuperación. Guárdala fuera de la app.' }),
+      el('a', { href: '/api/admin/backup', text: 'Descargar copia completa (JSON)' }),
     ),
   );
 }

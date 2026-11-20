@@ -62,6 +62,7 @@ export const config = {
   // Si están definidas, los datos se guardan en Supabase (permanente). Si no, en archivo local.
   supabaseUrl: process.env.SUPABASE_URL || '',
   supabaseKey: process.env.SUPABASE_SERVICE_KEY || '',
+  imageBucket: process.env.RESOLVER_IMAGE_BUCKET || 'resolver-fotos',
   // Solo para crear el superadministrador en un hosting sin consola (si aún no existe)
   bootstrapUser: process.env.RESOLVER_ADMIN_USER || '',
   bootstrapPassword: process.env.RESOLVER_ADMIN_PASSWORD || '',

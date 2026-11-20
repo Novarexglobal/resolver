@@ -61,6 +61,8 @@ const SUMMARIES = {
   'PATCH /api/admin/sources/{id}': 'Actualizar estado o nota de una fuente.',
   'GET /api/admin/searches': 'Análisis y búsquedas de todos los usuarios, para supervisión.',
   'GET /api/openapi.json': 'Esta especificación.',
+  'POST /api/admin/posts/{id}/image': 'Subir una foto a una publicación (JPEG, PNG o WebP, máximo 2 MB) a Supabase Storage.',
+  'GET /api/admin/backup': 'Copia completa del almacén en JSON, sin contraseñas, sesiones ni tokens (superadministrador).',
 };
 
 const toOpenApiPath = (path) => path.replace(/:(\w+)/g, '{$1}');

@@ -40,6 +40,8 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 - Descarga del historial en CSV compatible con Excel (BOM UTF-8).
 - Protección CSRF por tipo de contenido JSON en todas las escrituras; cabeceras de seguridad; control de rutas estáticas.
 - Endpoint `/api/health` con estado de almacenamiento y escrituras pendientes.
+- Fotos de publicaciones: el administrador sube JPEG, PNG o WebP (máximo 2 MB). El tipo se verifica por los bytes del archivo, no por su extensión. Se guardan en Supabase Storage y nunca sobrescriben otra foto.
+- Copia de seguridad completa en JSON, descargable por el superadministrador desde Configuración. Incluye grupos, publicaciones, cargas, señales, categorías, fuentes y reportes; excluye contraseñas, sesiones y tokens de recuperación.
 
 ## 3. Qué está parcial o pendiente
 
@@ -50,17 +52,16 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 - **Clasificación**: palabras clave con sugerencias marcadas; no hay clasificador automático entrenado.
 - **Cuentas**: el correo solo envía recuperaciones si se configura el servicio de correo (Resend). Sin él, la solicitud queda registrada para el administrador, que puede restablecer la contraseña. No hay verificación de correo.
 - **Administración por rol**: el moderador tiene sus permisos en el servidor (probados en pruebas de API), pero el recorrido de su panel no tiene prueba de navegador.
-- **Documentación OpenAPI**: todas las rutas aparecen; los resúmenes están escritos para la mayoría, no para todas.
+- **Fotos**: la subida está probada contra un servidor simulado de Supabase Storage. Falta probarla con el bucket real.
 
 **No construido**
 
-- **Fotografías subidas** por el usuario: hoy solo se muestran enlaces a imágenes. Requiere un bucket de Supabase Storage y credenciales para probarlo.
 - **Esquema relacional con migraciones versionadas**: los datos se guardan como filas JSON en `resolver_records`. Simplifica la operación, pero no cumple el diseño por tablas que plantea la especificación.
 - **Capa de país** (módulo 8): solo provincias y municipios.
 - **Verificación de correo** y edición del perfil desde el panel de administración.
 - **Nexo Data Engine** (sección 5): existen validación, deduplicación, clasificación, detección de señales y sincronización. No hay adaptadores de fuentes ni actualizaciones programadas: el plan gratuito de Render no ejecuta tareas periódicas.
 - **Monetización**: los planes están definidos en `src/catalog.js` como `PLANS`, sin activar ni bloquear funciones, como pide la especificación.
-- **Copias de seguridad automáticas**: dependen del plan de Supabase.
+- **Copias de seguridad automáticas**: la descarga manual existe; la programada depende del plan de Supabase y de tareas periódicas, que el plan gratuito de Render no ejecuta.
 
 **Decisiones pendientes del titular**
 
@@ -71,7 +72,7 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 
 | Integración | Estado | Qué necesita |
 |---|---|---|
-| Supabase (almacenamiento) | Activa al configurar las variables | `SUPABASE_SERVICE_KEY` en Render |
+| Supabase (almacenamiento) | Activa al configurar las variables | `SUPABASE_SERVICE_KEY` en Render. Para fotos: un bucket público llamado `resolver-fotos` (o el que indique `RESOLVER_IMAGE_BUCKET`) |
 | Correo (Resend) | Opcional; sin clave la recuperación queda para el administrador | `RESEND_API_KEY`, `RESOLVER_MAIL_FROM`, `RESOLVER_APP_URL` |
 | Facebook | Manual por diseño | Ninguna. No se extrae nada automáticamente, por sus condiciones de uso |
 | Revolico | No conectada: no hay permiso verificado para acceso automatizado | Carga manual o un acuerdo de datos |
@@ -80,10 +81,11 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 
 ## 5. Pruebas ejecutadas
 
-- **64 pruebas automáticas** (`npm test`):
+- **74 pruebas automáticas** (`npm test`):
   - Lógica de período, deduplicación, filtros, análisis, señales, comparación entre períodos, clasificador, validación, CSV y formato por líneas, contraseñas, enlaces de Facebook.
   - API completa: permisos por rol, grupos, cargas, historial, exportación, perfil, sesiones, recuperación de contraseña (con enlace caducado y reutilizado), guardados, exploración, señales, categorías, fuentes, configuración, reportes y ausencia de borrado.
   - Correo con respuesta de error y servicio caído.
+  - Fotos: detección por bytes, tamaño máximo, rechazo sin almacenamiento configurado y permisos; copia de seguridad sin contraseñas; resumen OpenAPI en todas las rutas.
   - Adaptador de Supabase contra un servidor simulado.
 - **61 comprobaciones en navegador real** (Chromium con perfiles de iPhone 13 y Pixel 7), que cubren registro, grupos, importación, búsqueda con filtros, estadísticas, enlaces a la fuente, Explorar, guardado de análisis, cuenta con cambio de tema, recuperación (formulario), historial, reportes, cierre de sesión, panel de administración, historial de grupo y ausencia de errores en consola. Se ejecutó dos veces seguidas con el mismo resultado.
 
@@ -95,7 +97,7 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 - Si el proceso se detiene justo antes de enviar una escritura a Supabase, esa escritura se pierde. La ventana es de milisegundos, pero existe.
 - El plan gratuito de Render se duerme tras unos 15 minutos sin uso. La primera carga tarda unos 30 segundos.
 - Sin límite de intentos en el registro de usuarios, solo en el inicio de sesión y la recuperación.
-- Las imágenes de publicaciones se muestran desde el enlace original; si el enlace deja de existir, la imagen no se verá.
+- Las publicaciones cargadas con enlace de imagen externo siguen mostrando esa imagen; si el enlace deja de existir, no se verá. Las fotos subidas con la herramienta no tienen este problema.
 - Las seis pestañas del móvil usan texto pequeño (0,78 rem) para caber; en pantallas muy estrechas puede verse apretado.
 
 ## 7. Cómo ejecutar

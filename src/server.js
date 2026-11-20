@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
-import { Store } from './store.js';
+import { Store, COLLECTIONS } from './store.js';
+import { randomUUID } from 'node:crypto';
+import { detectImage, objectPath, uploadImage, MAX_IMAGE_BYTES } from './storage.js';
 import { SupabaseStore } from './supabase-store.js';
 import { config, PROVINCES, CURRENCIES, MAX_PERIOD_DAYS, MIN_OBSERVATIONS, MIN_DISTINCT_DAYS, CATEGORY_TREE, RECOVERY_MINUTES } from './config.js';
 import {
@@ -1033,6 +1035,64 @@ export function createApp(store, options = {}) {
   // Las publicaciones cargadas son parte del historial permanente y no se borran
   add('DELETE', '/api/admin/posts/:id', () => {
     throw new HttpError(403, 'Las publicaciones no se eliminan: forman parte del historial permanente.');
+  });
+
+  // Foto de una publicación. Se valida por bytes (JPEG, PNG o WebP, máximo 2 MB) y se guarda en Supabase Storage.
+  add('POST', '/api/admin/posts/:id/image', async (ctx) => {
+    requireContent(ctx);
+    const body = await readJson(ctx.req, Math.ceil(MAX_IMAGE_BYTES * 1.4));
+    const post = store.get('posts', (p) => p.id === ctx.params.id);
+    if (!post) throw new HttpError(404, 'Publicación no encontrada.');
+    const raw = String(body.content_base64 ?? '').replace(/^data:[^,]*,/, '');
+    if (!raw) throw new HttpError(400, 'Envía la imagen en content_base64.');
+    const bytes = Buffer.from(raw, 'base64');
+    if (!bytes.length) throw new HttpError(400, 'La imagen está vacía.');
+    if (bytes.length > MAX_IMAGE_BYTES) throw new HttpError(413, 'La imagen supera 2 MB.');
+    const kind = detectImage(bytes);
+    if (!kind) throw new HttpError(400, 'Solo se aceptan imágenes JPEG, PNG o WebP.');
+    const path = objectPath(post.id, kind.ext, randomUUID().slice(0, 8));
+    const result = await uploadImage({
+      baseUrl: cfg.supabaseUrl,
+      key: cfg.supabaseKey,
+      bucket: cfg.imageBucket,
+      path,
+      bytes,
+      contentType: kind.type,
+      fetchImpl: cfg.fetchImpl,
+    });
+    if (!result.sent) throw new HttpError(503, result.reason);
+    const updated = store.update('posts', post.id, { image_url: result.url });
+    ctx.json(200, { post: publicPost({ ...updated, group_name: groupsById().get(updated.group_id)?.name, group_url: groupsById().get(updated.group_id)?.url }) });
+  });
+
+  // Copia completa del almacén para el superadministrador. Sin contraseñas, sesiones ni tokens de recuperación.
+  add('GET', '/api/admin/backup', (ctx) => {
+    requireSuper(ctx);
+    const OMIT = { sessions: null, resets: null, users: ['password_hash'] };
+    const data = {};
+    for (const c of COLLECTIONS) {
+      if (c in OMIT && OMIT[c] === null) continue;
+      const fields = OMIT[c] || [];
+      data[c] = store.list(c).map((row) => {
+        const copy = { ...row };
+        for (const f of fields) delete copy[f];
+        return copy;
+      });
+    }
+    const body = {
+      format: 'resolver-backup',
+      version: 1,
+      generated_at: new Date().toISOString(),
+      omitted: { users: ['password_hash'], sessions: 'todas', resets: 'todos' },
+      counts: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.length])),
+      data,
+    };
+    ctx.res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="resolver-respaldo-${todayISO()}.json"`,
+      'Cache-Control': 'no-store',
+    });
+    ctx.res.end(JSON.stringify(body));
   });
 
   // ---------- Categorías ----------
