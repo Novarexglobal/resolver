@@ -492,12 +492,44 @@ function photoControl(p, reload) {
   return input;
 }
 
+// Ocultar pide motivo y lo guarda; nunca borra. Mostrar devuelve la publicación a las búsquedas.
+function visibilityControl(p, reload) {
+  const setHidden = async (hidden, reason) => {
+    try {
+      await api(`/api/admin/posts/${encodeURIComponent(p.id)}`, { method: 'PATCH', body: hidden ? { hidden: true, reason } : { hidden: false } });
+      toast(hidden ? 'Publicación oculta.' : 'Publicación visible de nuevo.');
+      reload();
+    } catch (err) {
+      toast(err.message);
+    }
+  };
+  if (p.hidden) {
+    return el(
+      'div',
+      {},
+      el('span', { class: 'badge warn', text: 'Oculta' }),
+      el('div', { class: 'muted', text: p.hidden_reason || '' }),
+      el('button', { type: 'button', class: 'small', text: 'Mostrar', onclick: () => setHidden(false) }),
+    );
+  }
+  return el('button', {
+    type: 'button',
+    class: 'small',
+    text: 'Ocultar',
+    onclick: () => {
+      const reason = window.prompt('Motivo para ocultar (queda en el historial; la publicación no se borra):', '');
+      if (reason === null) return;
+      setHidden(true, reason.trim());
+    },
+  });
+}
+
 async function loadPostRows(groupId, box) {
   const { posts } = await api(`/api/admin/posts${groupId ? `?group_id=${encodeURIComponent(groupId)}` : ''}`);
   const rows = posts.map((p) =>
-    el('tr', {}, td(p.published_at), td(el('strong', { text: p.product }), el('div', { class: 'muted', text: `${p.municipality || ''} ${p.province}` })), td(money(p.price, p.currency)), td(p.group_name || ''), td(p.source_url ? el('a', { href: p.source_url, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir' }) : el('span', { class: 'badge warn', text: 'Sin enlace' })), td(photoControl(p, () => loadPostRows(groupId, box)))),
+    el('tr', {}, td(p.published_at), td(el('strong', { text: p.product }), el('div', { class: 'muted', text: `${p.municipality || ''} ${p.province}` })), td(money(p.price, p.currency)), td(p.group_name || ''), td(p.source_url ? el('a', { href: p.source_url, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir' }) : el('span', { class: 'badge warn', text: 'Sin enlace' })), td(photoControl(p, () => loadPostRows(groupId, box))), td(visibilityControl(p, () => loadPostRows(groupId, box)))),
   );
-  box.replaceChildren(table(['Fecha', 'Producto', 'Precio', 'Grupo', 'Fuente', 'Foto'], rows));
+  box.replaceChildren(table(['Fecha', 'Producto', 'Precio', 'Grupo', 'Fuente', 'Foto', 'Visibilidad'], rows));
 }
 
 // ---------- usuarios ----------
@@ -537,17 +569,59 @@ async function renderUsers() {
             },
           }),
         );
+    // Correo: se edita y se confirma a mano cuando el servicio de correo no está configurado
+    const emailCell = el(
+      'div',
+      {},
+      el('div', { text: u.email || '—' }),
+      el('span', { class: `badge ${u.email ? (u.email_verified ? 'ok' : 'warn') : ''}`, text: !u.email ? 'Sin correo' : u.email_verified ? 'Confirmado' : 'Sin confirmar' }),
+      el('div', { class: 'row' },
+        el('button', {
+          type: 'button',
+          class: 'small secondary',
+          text: 'Editar correo',
+          onclick: async () => {
+            const value = window.prompt('Correo del usuario (vacío para quitarlo):', u.email || '');
+            if (value === null) return;
+            try {
+              await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body: { email: value.trim() } });
+              toast('Correo actualizado.');
+              showPanel('usuarios');
+            } catch (err) {
+              toast(err.message);
+            }
+          },
+        }),
+        u.email && !u.email_verified
+          ? el('button', {
+              type: 'button',
+              class: 'small',
+              text: 'Confirmar correo',
+              onclick: async () => {
+                try {
+                  await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body: { email_verified: true } });
+                  toast('Correo confirmado.');
+                  showPanel('usuarios');
+                } catch (err) {
+                  toast(err.message);
+                }
+              },
+            })
+          : null,
+      ),
+    );
     return el(
       'tr',
       {},
       td(el('strong', { text: u.username })),
+      td(emailCell),
       td(roleControl(u)),
       td(el('span', { class: `badge ${u.disabled ? 'bad' : 'ok'}`, text: u.disabled ? 'Desactivada' : 'Activa' })),
       td(when(u.created_at)),
       td(actions),
     );
   });
-  $('panel').replaceChildren(card('Usuarios', table(['Usuario', 'Rol', 'Estado', 'Alta', 'Acciones'], rows)));
+  $('panel').replaceChildren(card('Usuarios', table(['Usuario', 'Correo', 'Rol', 'Estado', 'Alta', 'Acciones'], rows)));
 }
 
 // ---------- categorías ----------

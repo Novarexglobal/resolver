@@ -1146,11 +1146,58 @@ async function repeatSearch(s) {
 }
 
 // ---------- cuenta ----------
+// Estado del correo en la cuenta, con reenvío del enlace de confirmación
+function renderEmailStatus(user) {
+  let box = $('acc-verify');
+  if (!box) {
+    box = document.createElement('p');
+    box.id = 'acc-verify';
+    box.className = 'muted';
+    $('acc-user').after(box);
+  }
+  if (!user.email) {
+    box.replaceChildren(document.createTextNode('Sin correo. Agrégalo abajo para poder recuperar tu contraseña.'));
+    return;
+  }
+  if (user.email_verified) {
+    box.replaceChildren(document.createTextNode('Correo confirmado.'));
+    return;
+  }
+  const resend = el('button', {
+    type: 'button',
+    class: 'small',
+    text: 'Reenviar enlace',
+    onclick: async () => {
+      try {
+        const data = await api('/api/profile/verify/send', { method: 'POST', body: {} });
+        toast(data.message);
+      } catch (err) {
+        toast(err.message);
+      }
+    },
+  });
+  box.replaceChildren(document.createTextNode('Correo sin confirmar. '), resend);
+}
+
+// Enlace de confirmación recibido por correo: se confirma sin necesidad de iniciar sesión
+async function handleVerifyLink() {
+  const token = new URLSearchParams(location.search).get('verify');
+  if (!token) return;
+  history.replaceState(null, '', location.pathname);
+  try {
+    const data = await api('/api/auth/verify', { method: 'POST', body: { token } });
+    toast(data.message);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
 async function loadAccount() {
   try {
     const [{ user }, { sessions }] = await Promise.all([api('/api/profile'), api('/api/profile/sessions')]);
     state.user = user;
     $('acc-user').textContent = `Usuario: ${user.username} · ${ROLE_LABEL[user.role] || user.role}`;
+    renderEmailStatus(user);
     $('pf-name').value = user.display_name || '';
     $('pf-email').value = user.email || '';
     $('pf-theme').value = user.preferences.theme;
@@ -1269,6 +1316,7 @@ $('report-form').addEventListener('submit', async (e) => {
 // ---------- arranque ----------
 (async function boot() {
   resetToken = new URLSearchParams(location.search).get('reset') || '';
+  handleVerifyLink();
   try {
     const { user } = await api('/api/me');
     if (!user) throw new Error('Sin sesión.');

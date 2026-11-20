@@ -17,6 +17,7 @@ export const COLLECTIONS = [
   'saves',
   'errors',
   'resets',
+  'verifications',
   'settings',
   'sources',
 ];

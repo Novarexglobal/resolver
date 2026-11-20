@@ -1,4 +1,4 @@
-import { PROVINCES, CURRENCIES } from './config.js';
+import { CURRENCIES, COUNTRIES, DEFAULT_COUNTRY, provincesOf } from './config.js';
 import { isDay, todayISO } from './analysis.js';
 
 export const MAX_IMPORT_ROWS = 2000;
@@ -73,7 +73,9 @@ export function validatePost(raw, index, now = new Date()) {
   if (!CURRENCIES.includes(currency)) errors.push(`moneda (${CURRENCIES.join(', ')})`);
 
   const province = get('province');
-  if (!PROVINCES.includes(province)) errors.push('provincia (debe coincidir con el catálogo)');
+  const country = get('country') || DEFAULT_COUNTRY;
+  if (!COUNTRIES.some((c) => c.name === country)) errors.push(`país (${COUNTRIES.map((c) => c.name).join(', ')})`);
+  else if (!provincesOf(country).includes(province)) errors.push('provincia (debe coincidir con el catálogo del país)');
 
   const published_at = get('published_at') || get('date');
   if (!isDay(published_at)) errors.push('fecha publicada (AAAA-MM-DD)');
@@ -89,6 +91,7 @@ export function validatePost(raw, index, now = new Date()) {
       product,
       price,
       currency,
+      country,
       province,
       municipality: get('municipality').slice(0, 80),
       // Vacía si no viene: el clasificador del motor la completa y marca su origen

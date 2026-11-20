@@ -4,7 +4,7 @@ import { Store, COLLECTIONS } from './store.js';
 import { randomUUID } from 'node:crypto';
 import { detectImage, objectPath, uploadImage, MAX_IMAGE_BYTES } from './storage.js';
 import { SupabaseStore } from './supabase-store.js';
-import { config, PROVINCES, CURRENCIES, MAX_PERIOD_DAYS, MIN_OBSERVATIONS, MIN_DISTINCT_DAYS, CATEGORY_TREE, RECOVERY_MINUTES } from './config.js';
+import { config, PROVINCES, CURRENCIES, MAX_PERIOD_DAYS, MIN_OBSERVATIONS, MIN_DISTINCT_DAYS, CATEGORY_TREE, RECOVERY_MINUTES, COUNTRIES, DEFAULT_COUNTRY, provincesOf } from './config.js';
 import {
   ROLES,
   CONTENT_ROLES,
@@ -69,6 +69,7 @@ const EXPLORE_KINDS = ['productos', 'categorias', 'provincias', 'municipios', 'p
 const DEFAULT_SETTINGS = { announcement: '', default_days: 7 };
 const DEFAULT_PREFS = { theme: 'auto', default_days: 7, default_province: '' };
 const DAY_MS = 864e5;
+const VERIFY_HOURS = 24;
 // Hash de referencia para igualar el tiempo de respuesta cuando el usuario no existe
 const DUMMY_HASH = hashPassword('referencia-no-usada-000');
 const PAGES = { '/': 'index.html', '/admin': 'admin.html' };
@@ -81,6 +82,7 @@ const publicUser = (u) => ({
   disabled: !!u.disabled,
   created_at: u.created_at,
   email: u.email || '',
+  email_verified: !!u.email_verified,
   display_name: u.display_name || '',
   preferences: { ...DEFAULT_PREFS, ...(u.preferences || {}) },
 });
@@ -100,6 +102,7 @@ const publicPost = (p) => ({
   image_url: p.image_url,
   group_name: p.group_name,
   group_url: p.group_url,
+  country: p.country || DEFAULT_COUNTRY,
   brand: p.brand || '',
   brand_source: p.brand_source || '',
   model: p.model || '',
@@ -164,11 +167,12 @@ export function createApp(store, options = {}) {
     store.insert('errors', { kind, message: String(message).slice(0, 500), ...extra });
   };
   // Publicaciones de grupos activos, con el nombre y el enlace del grupo
-  const activePosts = () => {
+  const activePosts = (country = DEFAULT_COUNTRY) => {
     const groups = groupsById();
     return store
       .list('posts')
-      .filter((p) => groups.get(p.group_id)?.status === 'activo')
+      // Las publicaciones ocultas salen de búsquedas, análisis, exploración e inicio; no se borran
+      .filter((p) => groups.get(p.group_id)?.status === 'activo' && p.hidden !== true && (p.country || DEFAULT_COUNTRY) === country)
       .map((p) => ({ ...p, group_name: groups.get(p.group_id).name, group_url: groups.get(p.group_id).url }));
   };
   const inDay = (p, a, b) => p.published_at >= a && p.published_at <= b;
@@ -206,12 +210,40 @@ export function createApp(store, options = {}) {
     };
   };
   const resetMailReady = () => Boolean(cfg.resendApiKey && cfg.mailFrom && cfg.appUrl);
+  // Enlace de confirmación de correo (24 h, un solo uso). Sin correo configurado no crea ningún enlace.
+  const sendVerification = async (user) => {
+    if (!resetMailReady()) {
+      recordError('verificacion', 'Se pidió confirmar un correo, pero el correo no está configurado en el servidor.', { user_id: user.id });
+      return { sent: false, reason: 'El correo no está configurado en el servidor.' };
+    }
+    const token = newToken();
+    store.insert('verifications', {
+      user_id: user.id,
+      email: user.email,
+      token_hash: hashToken(token),
+      expires_at: new Date(Date.now() + VERIFY_HOURS * 60 * 60 * 1000).toISOString(),
+      used: false,
+    });
+    const link = `${cfg.appUrl.replace(/\/+$/, '')}/?verify=${encodeURIComponent(token)}`;
+    const result = await sendMail({
+      apiKey: cfg.resendApiKey,
+      from: cfg.mailFrom,
+      to: user.email,
+      subject: 'Confirma tu correo en RESOLVER',
+      fetchImpl: cfg.fetchImpl,
+      text: `Hola ${user.username}.\n\nPara confirmar tu correo, abre este enlace en las próximas ${VERIFY_HOURS} horas:\n${link}\n\nSi no creaste la cuenta, ignora este mensaje.`,
+    });
+    if (!result.sent) recordError('verificacion', result.reason, { user_id: user.id });
+    return result;
+  };
 
   // ---------- Público ----------
   add('GET', '/api/config', (ctx) => {
     const s = settings();
     ctx.json(200, {
       provinces: PROVINCES,
+      countries: COUNTRIES.map((c) => ({ name: c.name, code: c.code })),
+      default_country: DEFAULT_COUNTRY,
       categories: store.list('categories', (c) => c.active !== false).map((c) => c.name),
       category_tree: categoryTree(),
       currencies: CURRENCIES,
@@ -259,10 +291,12 @@ export function createApp(store, options = {}) {
     const user = store.insert('users', {
       username,
       email,
+      email_verified: false,
       password_hash: hashPassword(body.password),
       role: ROLES.USER,
       disabled: false,
     });
+    if (email) await sendVerification(user);
     const s = createSession(store, user.id, cfg.sessionDays);
     ctx.json(201, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(s.token, s.expires_at, cfg.secureCookies) });
   });
@@ -317,6 +351,7 @@ export function createApp(store, options = {}) {
       from: cfg.mailFrom,
       to: email,
       subject: 'Recuperar contraseña de RESOLVER',
+      fetchImpl: cfg.fetchImpl,
       text: `Hola ${user.username}.\n\nPara definir una contraseña nueva, abre este enlace antes de ${RECOVERY_MINUTES} minutos:\n${link}\n\nSi no lo pediste, ignora este mensaje.`,
     });
     if (!result.sent) recordError('recuperacion', result.reason, { user_id: user.id });
@@ -337,7 +372,41 @@ export function createApp(store, options = {}) {
     ctx.json(200, { ok: true, message: 'Contraseña actualizada. Inicia sesión de nuevo.' });
   });
 
+  // Confirmación de correo con el enlace recibido
+  add('POST', '/api/auth/verify', async (ctx) => {
+    const body = await readJson(ctx.req);
+    const v = store.get('verifications', (x) => x.token_hash === hashToken(String(body.token ?? '')) && !x.used);
+    const invalid = new HttpError(400, 'El enlace no es válido o ya caducó. Pide uno nuevo desde tu perfil.');
+    if (!v || new Date(v.expires_at) < new Date()) throw invalid;
+    const user = store.get('users', (u) => u.id === v.user_id);
+    // Si el correo cambió después del envío, el enlace ya no vale
+    if (!user || user.disabled || user.email !== v.email) throw invalid;
+    store.update('users', user.id, { email_verified: true });
+    store.update('verifications', v.id, { used: true });
+    ctx.json(200, { ok: true, message: 'Correo confirmado.' });
+  });
+
   // ---------- Perfil, preferencias y sesiones ----------
+  // Pide un nuevo enlace de confirmación. Máximo 3 por hora.
+  add('POST', '/api/profile/verify/send', async (ctx) => {
+    requireUser(ctx);
+    const current = store.get('users', (u) => u.id === ctx.user.id);
+    if (!current.email) throw new HttpError(400, 'Primero agrega un correo a tu perfil.');
+    if (current.email_verified) throw new HttpError(400, 'Tu correo ya está confirmado.');
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    if (store.list('verifications', (v) => v.user_id === current.id && v.created_at > hourAgo).length >= 3) {
+      throw new HttpError(429, 'Ya pediste varios enlaces. Espera una hora e inténtalo de nuevo.');
+    }
+    const result = await sendVerification(current);
+    ctx.json(200, {
+      ok: true,
+      sent: result.sent,
+      message: result.sent
+        ? 'Te enviamos un enlace de confirmación.'
+        : 'El envío de correos no está configurado en el servidor. El administrador puede confirmar tu correo desde el panel.',
+    });
+  });
+
   add('GET', '/api/profile', (ctx) => {
     requireUser(ctx);
     ctx.json(200, { user: publicUser(ctx.user) });
@@ -353,6 +422,7 @@ export function createApp(store, options = {}) {
       if (email && !validateEmail(email)) throw new HttpError(400, 'El correo no es válido.');
       if (email && store.get('users', (u) => u.email === email && u.id !== ctx.user.id)) throw new HttpError(409, 'Ese correo ya está en uso.');
       patch.email = email;
+      if (email !== (ctx.user.email || '')) patch.email_verified = false;
     }
     if (body.preferences !== undefined) {
       const p = body.preferences || {};
@@ -432,6 +502,8 @@ export function createApp(store, options = {}) {
     requireUser(ctx);
     const q = ctx.query;
     const text = (q.get('q') || '').trim().slice(0, 120);
+    const country = q.get('country') || DEFAULT_COUNTRY;
+    if (!COUNTRIES.some((c) => c.name === country)) throw new HttpError(400, 'País no válido.');
     const province = q.get('province') || '';
     const municipality = (q.get('municipality') || '').trim().slice(0, 80);
     const category = q.get('category') || '';
@@ -460,7 +532,7 @@ export function createApp(store, options = {}) {
     };
     // Solo cuentan publicaciones de grupos activos dentro del período pedido
     const matched = filterPosts(
-      activePosts().filter((p) => inDay(p, period.start, period.end)),
+      activePosts(country).filter((p) => inDay(p, period.start, period.end)),
       { ...scope, start: period.start, end: period.end },
     );
     const analysis = analyze(matched, period);
@@ -469,7 +541,7 @@ export function createApp(store, options = {}) {
     // Comparación con el mismo número de días inmediatamente anteriores
     const prevPeriod = resolvePeriod({ end: dayBefore(period.start), days: period.days });
     const previous = filterPosts(
-      activePosts().filter((p) => inDay(p, prevPeriod.start, prevPeriod.end)),
+      activePosts(country).filter((p) => inDay(p, prevPeriod.start, prevPeriod.end)),
       { ...scope, start: prevPeriod.start, end: prevPeriod.end },
     );
     const comparison = { period: prevPeriod, total: previous.length, ...compareWindows(matched, previous) };
@@ -493,7 +565,7 @@ export function createApp(store, options = {}) {
 
     ctx.json(200, {
       period,
-      filters: { q: text, province, municipality, category, brand, model, sort },
+      filters: { q: text, country, province, municipality, category, brand, model, sort },
       total: matched.length,
       search_id: searchId,
       offset,
@@ -524,6 +596,8 @@ export function createApp(store, options = {}) {
     const q = ctx.query;
     const kind = q.get('kind') || 'productos';
     if (!EXPLORE_KINDS.includes(kind)) throw new HttpError(400, 'Vista no válida.');
+    const country = q.get('country') || DEFAULT_COUNTRY;
+    if (!COUNTRIES.some((c) => c.name === country)) throw new HttpError(400, 'País no válido.');
     const province = q.get('province') || '';
     const category = q.get('category') || '';
     if (province && !PROVINCES.includes(province)) throw new HttpError(400, 'Provincia no válida.');
@@ -534,7 +608,7 @@ export function createApp(store, options = {}) {
     } catch (err) {
       throw new HttpError(400, err.message);
     }
-    const inPeriod = filterPosts(activePosts(), {
+    const inPeriod = filterPosts(activePosts(country), {
       province,
       categories: categoryScope(store, category),
       start: period.start,
@@ -572,7 +646,7 @@ export function createApp(store, options = {}) {
     }
     if (kind === 'movimientos') {
       // Compara siempre los últimos 7 días con los 7 anteriores
-      const items = detectCandidates(activePosts()).filter((c) => MOVEMENT_TYPES.includes(c.type));
+      const items = detectCandidates(activePosts(country)).filter((c) => MOVEMENT_TYPES.includes(c.type));
       return ctx.json(200, { ...base, items, window: 'últimos 7 días frente a los 7 anteriores' });
     }
     // oportunidades: señales guardadas y activas
@@ -839,6 +913,25 @@ export function createApp(store, options = {}) {
       ctx.json(200, { user: publicUser(updated) });
       return;
     }
+    // Datos de perfil: correo, nombre y confirmación manual del correo (cuando no hay servicio de correo)
+    if (body.email !== undefined || body.display_name !== undefined || body.email_verified !== undefined) {
+      const patch = {};
+      if (body.display_name !== undefined) patch.display_name = String(body.display_name).trim().slice(0, 60);
+      if (body.email !== undefined) {
+        const email = String(body.email).trim().toLowerCase();
+        if (email && !validateEmail(email)) throw new HttpError(400, 'El correo no es válido.');
+        if (email && store.get('users', (u) => u.email === email && u.id !== target.id)) throw new HttpError(409, 'Ese correo ya está en uso.');
+        if (email !== (target.email || '')) patch.email_verified = false;
+        patch.email = email;
+      }
+      if (body.email_verified !== undefined) {
+        if (typeof body.email_verified !== 'boolean') throw new HttpError(400, 'email_verified debe ser verdadero o falso.');
+        if (body.email_verified && !(patch.email ?? target.email)) throw new HttpError(400, 'Sin correo no se puede confirmar.');
+        patch.email_verified = body.email_verified;
+      }
+      ctx.json(200, { user: publicUser(store.update('users', target.id, patch)) });
+      return;
+    }
     if (typeof body.disabled !== 'boolean') throw new HttpError(400, 'Indica el rol, si la cuenta está desactivada o una contraseña nueva.');
     const updated = store.update('users', target.id, { disabled: body.disabled });
     if (body.disabled) {
@@ -859,7 +952,9 @@ export function createApp(store, options = {}) {
     const body = await readJson(ctx.req);
     const name = String(body.name ?? '').trim();
     if (name.length < 3 || name.length > 120) throw new HttpError(400, 'El nombre del grupo debe tener de 3 a 120 caracteres.');
-    if (!PROVINCES.includes(body.province)) throw new HttpError(400, 'Selecciona la provincia del grupo.');
+    const groupCountry = body.country || DEFAULT_COUNTRY;
+    if (!COUNTRIES.some((c) => c.name === groupCountry)) throw new HttpError(400, 'País no válido.');
+    if (!provincesOf(groupCountry).includes(body.province)) throw new HttpError(400, 'Selecciona la provincia del grupo.');
     const url = canonicalGroupUrl(body.url);
     if (store.get('groups', (g) => g.url.toLowerCase() === url.toLowerCase())) throw new HttpError(409, 'Ese grupo ya está registrado.');
     for (const key of ['created_on', 'history_from']) {
@@ -868,6 +963,7 @@ export function createApp(store, options = {}) {
     const group = store.insert('groups', {
       name,
       url,
+      country: groupCountry,
       province: body.province,
       municipality: String(body.municipality ?? '').trim().slice(0, 80),
       created_on: body.created_on || null,
@@ -963,7 +1059,13 @@ export function createApp(store, options = {}) {
       .list('posts', (p) => !groupId || p.group_id === groupId)
       .sort((a, b) => (a.published_at < b.published_at ? 1 : -1))
       .slice(0, 300)
-      .map((p) => ({ ...publicPost({ ...p, group_name: groups.get(p.group_id)?.name, group_url: groups.get(p.group_id)?.url }), group_id: p.group_id }));
+      .map((p) => ({
+        ...publicPost({ ...p, group_name: groups.get(p.group_id)?.name, group_url: groups.get(p.group_id)?.url }),
+        group_id: p.group_id,
+        hidden: p.hidden === true,
+        hidden_reason: p.hidden_reason || '',
+        hidden_at: p.hidden_at || null,
+      }));
     ctx.json(200, { posts });
   });
 
@@ -1029,6 +1131,28 @@ export function createApp(store, options = {}) {
       error_count: errors.length,
       errors: errors.slice(0, 100),
       signals,
+    });
+  });
+
+  // Ocultar o mostrar una publicación. El motivo queda registrado; la publicación nunca se borra.
+  add('PATCH', '/api/admin/posts/:id', async (ctx) => {
+    requireContent(ctx);
+    const body = await readJson(ctx.req);
+    const post = store.get('posts', (p) => p.id === ctx.params.id);
+    if (!post) throw new HttpError(404, 'Publicación no encontrada.');
+    if (typeof body.hidden !== 'boolean') throw new HttpError(400, 'Indica si la publicación queda oculta (hidden: true o false).');
+    const reason = String(body.reason ?? '').trim().slice(0, 300);
+    if (body.hidden && reason.length < 5) throw new HttpError(400, 'Escribe el motivo de la ocultación (mínimo 5 caracteres).');
+    const now = new Date().toISOString();
+    const updated = store.update(
+      'posts',
+      post.id,
+      body.hidden
+        ? { hidden: true, hidden_reason: reason, hidden_at: now, hidden_by: ctx.user.username }
+        : { hidden: false, unhidden_at: now, unhidden_by: ctx.user.username },
+    );
+    ctx.json(200, {
+      post: { id: updated.id, hidden: updated.hidden === true, hidden_reason: updated.hidden_reason || '', hidden_at: updated.hidden_at || null },
     });
   });
 

@@ -222,6 +222,38 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
     check('admin: importar muestra grupos registrados', true);
     check('admin: sin errores en consola', errors.length === 0, errors.slice(0, 3).join(' | '));
     await ctx.close();
+
+    // Moderador: cuenta creada por API y promovida por el superadministrador; entra, ve solo contenido y oculta con motivo
+    const MOD = 'moder_e2e';
+    await fetch(`${BASE}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: MOD, password: USER_PASS }) });
+    const listed = await (await fetch(`${BASE}/api/admin/users`, { headers: { Cookie: adminCookie } })).json();
+    const modId = listed.users.find((u) => u.username === MOD).id;
+    await fetch(`${BASE}/api/admin/users/${modId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Cookie: adminCookie }, body: JSON.stringify({ role: 'moderador' }) });
+
+    const modCtx = await browser.newContext({ ...devices['Pixel 7'] });
+    const mod = await modCtx.newPage();
+    const modErrors = [];
+    mod.on('pageerror', (e) => modErrors.push(e.message));
+    mod.on('console', (m) => { if (m.type() === 'error') modErrors.push(m.text()); });
+    await mod.goto(BASE + '/admin');
+    await mod.fill('#admin-user', MOD);
+    await mod.fill('#admin-pass', USER_PASS);
+    await mod.click('#admin-login-form button[type="submit"]');
+    await mod.waitForSelector('#admin-app:not(.hidden)');
+    await mod.waitForSelector('text=Resumen general');
+    check('moderador: entra al panel de contenido', true);
+    const sensitive = ['estadisticas', 'usuarios', 'configuracion', 'errores'];
+    const visibleSensitive = [];
+    for (const name of sensitive) if (await mod.isVisible(`[data-panel="${name}"]`)) visibleSensitive.push(name);
+    check('moderador: no ve estadísticas, usuarios, configuración ni errores', visibleSensitive.length === 0, visibleSensitive.join(', '));
+    await mod.click('[data-panel="publicaciones"]');
+    await mod.waitForSelector('table tbody tr td');
+    mod.once('dialog', (d) => d.accept('Motivo de prueba del grupo'));
+    await mod.locator('table tbody tr').first().getByRole('button', { name: 'Ocultar' }).click();
+    await mod.waitForSelector('span.badge >> text="Oculta"');
+    check('moderador: oculta una publicación con motivo', true);
+    check('moderador: sin errores en consola', modErrors.length === 0, modErrors.slice(0, 3).join(' | '));
+    await modCtx.close();
     await browser.close();
   } finally {
     server.kill();

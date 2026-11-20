@@ -71,3 +71,9 @@ export const config = {
   mailFrom: process.env.RESOLVER_MAIL_FROM || '',
   appUrl: process.env.RESOLVER_APP_URL || '',
 };
+
+// Capa de país (módulo 8). Hoy solo Cuba tiene datos y catálogo de provincias.
+// Un país nuevo se añade aquí con sus provincias; las publicaciones sin país son de Cuba.
+export const DEFAULT_COUNTRY = 'Cuba';
+export const COUNTRIES = [{ name: 'Cuba', code: 'CU', provinces: PROVINCES }];
+export const provincesOf = (country) => COUNTRIES.find((c) => c.name === country)?.provinces ?? [];

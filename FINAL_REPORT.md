@@ -41,6 +41,10 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 - Protección CSRF por tipo de contenido JSON en todas las escrituras; cabeceras de seguridad; control de rutas estáticas.
 - Endpoint `/api/health` con estado de almacenamiento y escrituras pendientes.
 - Fotos de publicaciones: el administrador sube JPEG, PNG o WebP (máximo 2 MB). El tipo se verifica por los bytes del archivo, no por su extensión. Se guardan en Supabase Storage y nunca sobrescriben otra foto.
+- Ocultar publicaciones: el equipo de contenido oculta una publicación con motivo registrado. Sale de búsquedas, análisis, exploración, señales e inicio. Se puede volver a mostrar. No se borra, y una publicación oculta no se vuelve a cargar al repetir la importación.
+- Verificación de correo: el registro envía un enlace de confirmación (24 horas, un solo uso); reenvío con máximo tres por hora; cambiar el correo lo deja sin confirmar. Sin servicio de correo no se crea ningún enlace y el administrador puede confirmar el correo desde el panel.
+- Panel de usuarios: el superadministrador edita el correo y el nombre de cada cuenta, y confirma correos.
+- Capa de país (backend): cada publicación y grupo tiene país, con Cuba por defecto. Búsqueda y exploración aceptan `country` y solo muestran publicaciones de países del catálogo.
 - Copia de seguridad completa en JSON, descargable por el superadministrador desde Configuración. Incluye grupos, publicaciones, cargas, señales, categorías, fuentes y reportes; excluye contraseñas, sesiones y tokens de recuperación.
 
 ## 3. Qué está parcial o pendiente
@@ -51,22 +55,21 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 - **Análisis por categoría**: se filtra por categoría, pero no hay una vista de análisis separada por rama.
 - **Clasificación**: palabras clave con sugerencias marcadas; no hay clasificador automático entrenado.
 - **Cuentas**: el correo solo envía recuperaciones si se configura el servicio de correo (Resend). Sin él, la solicitud queda registrada para el administrador, que puede restablecer la contraseña. No hay verificación de correo.
-- **Administración por rol**: el moderador tiene sus permisos en el servidor (probados en pruebas de API), pero el recorrido de su panel no tiene prueba de navegador.
+- **Capa de país**: el backend está completo, pero la app todavía no tiene selector de país; hoy todo se muestra como Cuba.
 - **Fotos**: la subida está probada contra un servidor simulado de Supabase Storage. Falta probarla con el bucket real.
 
 **No construido**
 
 - **Esquema relacional con migraciones versionadas**: los datos se guardan como filas JSON en `resolver_records`. Simplifica la operación, pero no cumple el diseño por tablas que plantea la especificación.
-- **Capa de país** (módulo 8): solo provincias y municipios.
-- **Verificación de correo** y edición del perfil desde el panel de administración.
 - **Nexo Data Engine** (sección 5): existen validación, deduplicación, clasificación, detección de señales y sincronización. No hay adaptadores de fuentes ni actualizaciones programadas: el plan gratuito de Render no ejecuta tareas periódicas.
 - **Monetización**: los planes están definidos en `src/catalog.js` como `PLANS`, sin activar ni bloquear funciones, como pide la especificación.
 - **Copias de seguridad automáticas**: la descarga manual existe; la programada depende del plan de Supabase y de tareas periódicas, que el plan gratuito de Render no ejecuta.
 
 **Decisiones pendientes del titular**
 
-- Si las publicaciones que un administrador de grupo pida retirar deben ocultarse (sin borrarse) o no mostrarse en absoluto. Hoy RESOLVER no tiene ocultamiento por publicación; solo por grupo (pausa).
-- Si los datos de contacto de vendedores de Facebook deben guardarse. Hoy se guardan solo cuando el administrador los carga desde una publicación pública, y son visibles para usuarios registrados. Conviene revisar la base legal antes de ampliar el acceso.
+- Decidido: las publicaciones que un administrador de grupo pida retirar se ocultan, sin borrarse, con motivo registrado.
+- Decidido: los datos de contacto de vendedores de Facebook se mantienen. Los carga el administrador desde publicaciones públicas y los ven los usuarios registrados. Conviene revisar la base legal antes de ampliar el acceso.
+- Decidido: la monetización queda inactiva; los planes se definen sin bloquear funciones.
 
 ## 4. Integraciones
 
@@ -81,13 +84,14 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 
 ## 5. Pruebas ejecutadas
 
-- **74 pruebas automáticas** (`npm test`):
+- **95 pruebas automáticas** (`npm test`):
   - Lógica de período, deduplicación, filtros, análisis, señales, comparación entre períodos, clasificador, validación, CSV y formato por líneas, contraseñas, enlaces de Facebook.
   - API completa: permisos por rol, grupos, cargas, historial, exportación, perfil, sesiones, recuperación de contraseña (con enlace caducado y reutilizado), guardados, exploración, señales, categorías, fuentes, configuración, reportes y ausencia de borrado.
   - Correo con respuesta de error y servicio caído.
+  - Ocultar publicaciones, país, verificación de correo y edición de usuarios por el administrador.
   - Fotos: detección por bytes, tamaño máximo, rechazo sin almacenamiento configurado y permisos; copia de seguridad sin contraseñas; resumen OpenAPI en todas las rutas.
   - Adaptador de Supabase contra un servidor simulado.
-- **61 comprobaciones en navegador real** (Chromium con perfiles de iPhone 13 y Pixel 7), que cubren registro, grupos, importación, búsqueda con filtros, estadísticas, enlaces a la fuente, Explorar, guardado de análisis, cuenta con cambio de tema, recuperación (formulario), historial, reportes, cierre de sesión, panel de administración, historial de grupo y ausencia de errores en consola. Se ejecutó dos veces seguidas con el mismo resultado.
+- **65 comprobaciones en navegador real** (Chromium con perfiles de iPhone 13 y Pixel 7), que cubren registro, grupos, importación, búsqueda con filtros, estadísticas, enlaces a la fuente, Explorar, guardado de análisis, cuenta con cambio de tema, recuperación (formulario), historial, reportes, cierre de sesión, panel de administración, historial de grupo, recorrido completo del moderador (permisos y ocultación con motivo) y ausencia de errores en consola. Se ejecutó dos veces seguidas con el mismo resultado.
 
 ## 6. Errores conocidos y corregidos
 
@@ -108,7 +112,7 @@ Requisitos: Node.js 22 o superior.
 npm run create-superadmin -- tu_usuario   # solo la primera vez, en local
 npm start                                 # http://localhost:3000 (usuarios) y /admin (administración)
 npm test                                  # 64 pruebas
-npm run test:e2e                          # 61 comprobaciones en navegador (requiere Playwright y Chromium)
+npm run test:e2e                          # 65 comprobaciones en navegador (requiere Playwright y Chromium)
 ```
 
 Variables de entorno: ver `.env.example` y la tabla en `README.md`.

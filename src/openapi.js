@@ -10,6 +10,8 @@ const SUMMARIES = {
   'POST /api/auth/logout': 'Cerrar sesión.',
   'POST /api/auth/forgot': 'Solicitar enlace de recuperación de contraseña.',
   'POST /api/auth/reset': 'Definir una contraseña nueva con el enlace de recuperación.',
+  'POST /api/auth/verify': 'Confirmar el correo con el enlace recibido (24 horas, un solo uso).',
+  'POST /api/profile/verify/send': 'Pedir un nuevo enlace para confirmar el correo (máximo 3 por hora).',
   'GET /api/profile': 'Perfil y preferencias del usuario.',
   'PATCH /api/profile': 'Actualizar perfil y preferencias.',
   'POST /api/profile/password': 'Cambiar la contraseña propia.',
@@ -35,7 +37,7 @@ const SUMMARIES = {
   'GET /api/admin/settings': 'Configuración general (superadministrador).',
   'PATCH /api/admin/settings': 'Actualizar configuración general (superadministrador).',
   'GET /api/admin/users': 'Usuarios (superadministrador).',
-  'PATCH /api/admin/users/{id}': 'Cambiar rol, desactivar o restablecer contraseña (superadministrador).',
+  'PATCH /api/admin/users/{id}': 'Cambiar rol, desactivar, restablecer contraseña, editar nombre o correo y confirmar el correo (superadministrador).',
   'GET /api/admin/groups': 'Grupos con cobertura y última carga.',
   'POST /api/admin/groups': 'Alta de grupo con provincia e historial desde una fecha.',
   'PATCH /api/admin/groups/{id}': 'Cambiar estado, provincia, municipio o nombre de un grupo.',
@@ -62,6 +64,7 @@ const SUMMARIES = {
   'GET /api/admin/searches': 'Análisis y búsquedas de todos los usuarios, para supervisión.',
   'GET /api/openapi.json': 'Esta especificación.',
   'POST /api/admin/posts/{id}/image': 'Subir una foto a una publicación (JPEG, PNG o WebP, máximo 2 MB) a Supabase Storage.',
+  'PATCH /api/admin/posts/{id}': 'Ocultar una publicación con motivo registrado, o volver a mostrarla. Nunca se borra.',
   'GET /api/admin/backup': 'Copia completa del almacén en JSON, sin contraseñas, sesiones ni tokens (superadministrador).',
 };
 
