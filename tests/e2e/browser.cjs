@@ -62,7 +62,8 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
       check(`${tag}: el inicio es la vista por defecto`, true);
 
       // Grupos (solo en el primer perfil; el segundo reutiliza el grupo ya registrado)
-      await page.click('[data-view="grupos"]');
+      await page.click('[data-view="mas"]');
+      await page.click('#mas-bar [data-go="grupos"]');
       if (profile === 'iPhone 13') {
         await page.fill('#group-name', 'Ventas La Habana');
         await page.fill('#group-url', 'https://m.facebook.com/groups/ventas-habana/?ref=share');
@@ -130,16 +131,49 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
       await page.click('[data-view="historial"]');
       await page.waitForSelector('#history-list .list-item');
       check(`${tag}: búsqueda aparece en historial`, (await page.textContent('#history-list')).includes('iphone'));
-      await page.click('[data-view="reportes"]');
+      await page.click('[data-view="mas"]');
+      await page.click('#mas-bar [data-go="reportes"]');
       await page.fill('#report-message', 'Me gustaría filtrar por grupo específico');
       await page.click('#report-form button[type="submit"]');
       await page.waitForSelector('#toast:not(.hidden)');
       check(`${tag}: envío de sugerencia`, true);
 
+      // Explorar, información por módulo, guardado de análisis y cuenta
+      await page.click('[data-view="explorar"]');
+      await page.waitForSelector('#explore-results .list-item');
+      check(`${tag}: explorar muestra productos con datos`, (await page.textContent('#explore-results')).includes('iPhone'));
+      await page.click('#view-explorar .info-btn');
+      check(`${tag}: ventana de información de Explorar`, (await page.textContent('#info-body')).includes('Cómo se calcula'));
+      await page.click('#info-close');
+
+      await page.click('[data-view="buscar"]');
+      await page.fill('#q', 'iphone');
+      await page.click('#search-submit');
+      await page.waitForSelector('button:has-text("Guardar análisis")');
+      await page.click('button:has-text("Guardar análisis")');
+      await page.waitForSelector('#toast:not(.hidden)');
+      await page.click('[data-view="historial"]');
+      await page.waitForFunction(() => document.querySelector('#saved-list').textContent.includes('Análisis'), null, { timeout: 5000 });
+      const savedText = await page.textContent('#saved-list'); check(`${tag}: análisis guardado aparece en Guardados`, savedText.includes('Análisis'), savedText.slice(0, 160));
+
+      await page.click('[data-view="cuenta"]');
+      await page.waitForFunction(() => document.querySelector('#acc-user').textContent.includes('vendedor_1'));
+      await page.selectOption('#pf-theme', 'oscuro');
+      await page.click('#profile-form button[type="submit"]');
+      await page.waitForFunction(() => document.documentElement.getAttribute('data-theme') === 'dark');
+      check(`${tag}: cuenta cambia el tema`, true);
+      check(`${tag}: la sesión actual figura en la lista`, (await page.textContent('#sessions-list')).includes('Esta sesión'));
+
       // Cierre de sesión
       await page.click('#logout');
       await page.waitForSelector('#auth:not(.hidden)');
       check(`${tag}: cerrar sesión`, true);
+
+      // Recuperación: el formulario pide el correo
+      await page.click('#auth-forgot');
+      check(`${tag}: recuperar contraseña pide el correo`, await page.isVisible('#auth-email'));
+      await page.click('#auth-back');
+      check(`${tag}: volver a entrar muestra el acceso`, await page.isVisible('#auth-user'));
 
       check(`${tag}: sin errores en consola`, errors.length === 0, errors.slice(0, 3).join(' | '));
       await ctx.close();
@@ -157,7 +191,7 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
     await page.fill('#admin-pass', USER_PASS);
     await page.click('#admin-login-form button[type="submit"]');
     await page.waitForSelector('#admin-login-error:not(.hidden)');
-    check('admin: usuario normal no entra al panel', (await page.textContent('#admin-login-error')).includes('solo para el administrador'));
+    check('admin: usuario normal no entra al panel', (await page.textContent('#admin-login-error')).includes('equipo de administración'));
 
     await page.fill('#admin-user', SUPER);
     await page.fill('#admin-pass', SUPER_PASS);

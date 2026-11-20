@@ -8,6 +8,7 @@
   --brand-ink: #ffffff;
   --brand-soft: #e0e9ff;
   --ok: #15803d;
+  --ok-soft: #dcfce7;
   --warn: #b45309;
   --warn-soft: #fef3c7;
   --bad: #b91c1c;
@@ -26,7 +27,7 @@
     --brand: #3b82f6;
     --brand-soft: #1e2d55;
     --warn-soft: #3a2a0c;
-    --bad-soft: #3b1515;
+    --bad-soft: #3b1515; --ok-soft: #123524;
     --shadow: none;
   }
 }
@@ -40,7 +41,7 @@
   --brand: #3b82f6;
   --brand-soft: #1e2d55;
   --warn-soft: #3a2a0c;
-  --bad-soft: #3b1515;
+  --bad-soft: #3b1515; --ok-soft: #123524;
   --shadow: none;
 }
 
@@ -139,7 +140,7 @@ button.small { width: auto; padding: 6px 10px; font-size: 0.85rem; }
 
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   background: var(--card); border-top: 1px solid var(--line);
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
 }
@@ -165,7 +166,7 @@ th { color: var(--muted); font-weight: 600; }
 .table-wrap { overflow-x: auto; }
 
 @media (min-width: 900px) {
-  .tabbar { position: static; margin: 0 0 16px; border: 1px solid var(--line); border-radius: var(--radius); grid-template-columns: repeat(5, auto); justify-content: start; }
+  .tabbar { position: static; margin: 0 0 16px; border: 1px solid var(--line); border-radius: var(--radius); grid-template-columns: repeat(6, auto); justify-content: start; }
   .tabbar button { padding: 10px 16px; }
   main { padding-bottom: 24px; }
   .quick { grid-template-columns: repeat(4, 1fr); }
@@ -185,3 +186,31 @@ th { color: var(--muted); font-weight: 600; }
 .outlier-high { color: var(--bad); font-weight: 600; }
 .badge, button.small { white-space: nowrap; }
 .list-item > button.small { width: auto; flex-shrink: 0; }
+
+/* ---------- fase 3: acceso, información, Más, avisos ---------- */
+button.link { background: none; color: var(--brand); border: 0; padding: 0; font: inherit; text-decoration: underline; width: auto; cursor: pointer; }
+.alert.ok { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+button.info-btn {
+  width: 26px; height: 26px; min-width: 26px; padding: 0; border-radius: 50%;
+  background: var(--card); color: var(--brand); border: 1px solid var(--brand);
+  font-weight: 700; font-size: 0.85rem; line-height: 1; flex-shrink: 0;
+}
+.modal {
+  position: fixed; inset: 0; z-index: 40; background: rgba(15, 23, 42, 0.55);
+  display: flex; align-items: flex-end; justify-content: center; padding: 0;
+}
+.modal-card {
+  background: var(--card); color: var(--text); width: 100%; max-width: 620px;
+  max-height: 85vh; overflow: auto; border-radius: var(--radius) var(--radius) 0 0; padding: 18px 16px 24px;
+}
+@media (min-width: 720px) {
+  .modal { align-items: center; padding: 24px; }
+  .modal-card { border-radius: var(--radius); }
+}
+.info-block h4 { margin: 14px 0 4px; font-size: 0.9rem; }
+.info-block p { margin: 0; }
+#mas-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+#mas-bar button { width: auto; background: var(--card); color: var(--text); border: 1px solid var(--line); }
+#mas-bar button.active { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+button.small.active { outline: 2px solid var(--brand); }
+select[aria-label] { max-width: 100%; }

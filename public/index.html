@@ -15,28 +15,39 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <!-- Pantalla de acceso -->
+  <!-- Pantalla de acceso: entrar, crear cuenta, recuperar y definir contraseña -->
   <section id="auth" class="hidden">
     <div class="auth-wrap">
       <div class="card">
         <div class="brand" style="margin-bottom:12px">RESOLVER<small>Lo encuentras. Compras. Resuelves.</small></div>
-        <div class="auth-tabs">
+        <div class="auth-tabs" id="auth-tabs">
           <button type="button" class="secondary active" data-auth="login">Entrar</button>
           <button type="button" class="secondary" data-auth="register">Crear cuenta</button>
         </div>
         <form id="auth-form" novalidate>
-          <div style="margin-bottom:12px">
+          <div id="auth-user-wrap" style="margin-bottom:12px">
             <label for="auth-user">Usuario</label>
             <input id="auth-user" name="username" autocomplete="username" required minlength="3" maxlength="30">
           </div>
-          <div style="margin-bottom:12px">
-            <label for="auth-pass">Contraseña</label>
+          <div id="auth-email-wrap" class="hidden" style="margin-bottom:12px">
+            <label for="auth-email">Correo de la cuenta</label>
+            <input id="auth-email" type="email" autocomplete="email" maxlength="120">
+          </div>
+          <div id="auth-pass-wrap" style="margin-bottom:12px">
+            <label id="auth-pass-label" for="auth-pass">Contraseña</label>
             <input id="auth-pass" name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="200">
             <small class="muted" id="auth-hint" style="display:block;margin-top:4px"></small>
           </div>
           <div id="auth-error" class="alert error hidden" role="alert"></div>
+          <div id="auth-info" class="alert ok hidden" role="status"></div>
           <button type="submit" id="auth-submit">Entrar</button>
         </form>
+        <p style="margin:14px 0 0;text-align:center">
+          <button type="button" class="link" id="auth-forgot">¿Olvidaste tu contraseña?</button>
+        </p>
+        <p style="margin:10px 0 0;text-align:center" class="hidden" id="auth-back-wrap">
+          <button type="button" class="link" id="auth-back">Volver a entrar</button>
+        </p>
       </div>
     </div>
   </section>
@@ -53,12 +64,15 @@
     </header>
 
     <main>
+      <div id="announcement" class="alert warn hidden" role="status"></div>
+
       <nav class="tabbar" aria-label="Secciones">
         <button type="button" data-view="inicio" class="active">Inicio</button>
         <button type="button" data-view="buscar">Buscar</button>
-        <button type="button" data-view="grupos">Grupos</button>
+        <button type="button" data-view="explorar">Explorar</button>
         <button type="button" data-view="historial">Historial</button>
-        <button type="button" data-view="reportes">Reportes</button>
+        <button type="button" data-view="mas">Más</button>
+        <button type="button" data-view="cuenta">Cuenta</button>
       </nav>
 
       <!-- INICIO -->
@@ -66,13 +80,13 @@
         <div class="card">
           <div class="row" style="justify-content:space-between">
             <h2>Inicio</h2>
-            <span class="muted" id="dash-period"></span>
+            <span class="row"><span class="muted" id="dash-period"></span><button type="button" class="info-btn" data-info="inicio" aria-label="Información de Inicio">i</button></span>
           </div>
           <p class="muted" style="margin:0">Datos reales de los grupos activos. Mostrar un producto indica que aparece en publicaciones; no mide la demanda.</p>
         </div>
         <div class="card quick" aria-label="Accesos directos">
           <button type="button" class="secondary" data-go="buscar">Buscar producto</button>
-          <button type="button" class="secondary" data-go="grupos">Grupos</button>
+          <button type="button" class="secondary" data-go="explorar">Explorar</button>
           <button type="button" class="secondary" data-go="historial">Historial</button>
           <button type="button" class="secondary" data-go="reportes">Reportes</button>
         </div>
@@ -114,7 +128,10 @@
       <!-- BUSCAR -->
       <section id="view-buscar" class="hidden">
         <form id="search-form" class="card" novalidate>
-          <label for="q">¿Qué producto buscas?</label>
+          <div class="row" style="justify-content:space-between;margin-bottom:6px">
+            <label for="q" style="margin:0">¿Qué producto buscas?</label>
+            <button type="button" class="info-btn" data-info="buscar" aria-label="Información de Buscar">i</button>
+          </div>
           <input id="q" class="search-input" type="search" placeholder="Ej.: iPhone 16, Samsung A15, refrigerador" maxlength="120" autocomplete="off">
           <div class="form-grid" style="margin-top:12px">
             <div>
@@ -187,7 +204,7 @@
             <div id="evolution"></div>
           </div>
           <div class="form-grid" id="distribution"></div>
-          <div class="card">
+          <div class="card" id="posts-count-card">
             <div class="row" style="justify-content:space-between;margin-bottom:10px">
               <h3 style="margin:0">Publicaciones</h3>
               <span class="muted" id="posts-count"></span>
@@ -197,11 +214,104 @@
         </div>
       </section>
 
-      <!-- GRUPOS -->
+      <!-- EXPLORAR -->
+      <section id="view-explorar" class="hidden">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <h2>Explorar</h2>
+            <button type="button" class="info-btn" data-info="explorar" aria-label="Información de Explorar">i</button>
+          </div>
+          <p class="muted" style="margin:0">Recorre la oferta observada por productos, categorías, provincias, municipios, movimientos de precio y oportunidades.</p>
+        </div>
+        <form id="explore-form" class="card" novalidate>
+          <div class="form-grid">
+            <div>
+              <label for="ex-kind">Vista</label>
+              <select id="ex-kind">
+                <option value="productos" selected>Productos</option>
+                <option value="categorias">Categorías</option>
+                <option value="provincias">Provincias</option>
+                <option value="municipios">Municipios</option>
+                <option value="publicaciones">Publicaciones recientes</option>
+                <option value="presencia">Productos con más presencia</option>
+                <option value="movimientos">Movimientos de precio</option>
+                <option value="oportunidades">Oportunidades identificadas</option>
+              </select>
+            </div>
+            <div>
+              <label for="ex-province">Provincia</label>
+              <select id="ex-province"><option value="">Todas</option></select>
+            </div>
+            <div>
+              <label for="ex-category">Categoría</label>
+              <select id="ex-category"><option value="">Todas</option></select>
+            </div>
+            <div>
+              <label for="ex-days">Período</label>
+              <select id="ex-days">
+                <option value="7">Últimos 7 días</option>
+                <option value="14">Últimos 14 días</option>
+                <option value="30" selected>Últimos 30 días</option>
+              </select>
+            </div>
+            <div><button type="submit">Explorar</button></div>
+          </div>
+        </form>
+        <div id="explore-alerts"></div>
+        <div id="explore-results" class="list"></div>
+      </section>
+
+      <!-- HISTORIAL -->
+      <section id="view-historial" class="hidden">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <h2>Historial</h2>
+            <button type="button" class="info-btn" data-info="historial" aria-label="Información de Historial">i</button>
+          </div>
+          <form id="history-form" class="form-grid" novalidate>
+            <div>
+              <label for="hist-from">Desde</label>
+              <input id="hist-from" type="date">
+            </div>
+            <div>
+              <label for="hist-to">Hasta</label>
+              <input id="hist-to" type="date">
+            </div>
+            <div><button type="submit" class="secondary">Filtrar</button></div>
+          </form>
+          <p class="muted" style="font-size:0.85rem;margin:12px 0">Toca “Repetir” para volver a una búsqueda. Marca dos con “Comparar” para verlas lado a lado.</p>
+          <div class="row" style="margin-bottom:10px"><button type="button" class="small" id="compare-go" disabled>Comparar seleccionadas (0/2)</button></div>
+          <div id="compare-result"></div>
+          <div id="history-list" class="list"></div>
+        </div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between;margin-bottom:10px">
+            <h2 style="margin:0">Guardados</h2>
+            <select id="saved-kind" aria-label="Tipo de elemento guardado" style="width:auto">
+              <option value="">Todos</option>
+              <option value="analysis">Análisis</option>
+              <option value="search">Búsquedas</option>
+              <option value="signal">Señales</option>
+            </select>
+          </div>
+          <div id="saved-list" class="list"></div>
+        </div>
+      </section>
+
+      <!-- MÁS: grupos, reportes y sobre RESOLVER -->
+      <nav id="mas-bar" class="hidden" aria-label="Más">
+        <button type="button" data-go="grupos">Grupos</button>
+        <button type="button" data-go="reportes">Reportes</button>
+        <button type="button" data-go="sobre">Sobre RESOLVER</button>
+      </nav>
+
       <section id="view-grupos" class="hidden">
         <div class="card">
-          <h2>Agregar grupo de Facebook</h2>
-          <p class="muted">Registra el grupo de donde quieres obtener la oferta. Solo se guarda el nombre y el enlace del grupo.</p>
+          <div class="row" style="justify-content:space-between">
+            <h2>Agregar grupo de Facebook</h2>
+            <button type="button" class="info-btn" data-info="grupos" aria-label="Información de Grupos">i</button>
+          </div>
+          <p class="muted">Propón el grupo de donde quieres obtener la oferta. Queda como solicitud hasta que el equipo lo revisa y lo activa.</p>
           <form id="group-form" novalidate>
             <div class="form-grid">
               <div>
@@ -212,29 +322,22 @@
                 <label for="group-url">Enlace del grupo</label>
                 <input id="group-url" type="url" placeholder="https://www.facebook.com/groups/..." maxlength="300" required>
               </div>
-              <div><button type="submit">Agregar grupo</button></div>
+              <div><button type="submit">Proponer grupo</button></div>
             </div>
           </form>
         </div>
         <div class="card">
-          <h2>Grupos registrados</h2>
+          <h2>Grupos</h2>
           <div id="groups-list" class="list"></div>
         </div>
       </section>
 
-      <!-- HISTORIAL -->
-      <section id="view-historial" class="hidden">
-        <div class="card">
-          <h2>Búsquedas anteriores</h2>
-          <p class="muted">Toca una búsqueda para repetirla.</p>
-          <div id="history-list" class="list"></div>
-        </div>
-      </section>
-
-      <!-- REPORTES -->
       <section id="view-reportes" class="hidden">
         <div class="card">
-          <h2>Incidencias y sugerencias</h2>
+          <div class="row" style="justify-content:space-between">
+            <h2>Incidencias, sugerencias y reclamaciones</h2>
+            <button type="button" class="info-btn" data-info="reportes" aria-label="Información de Reportes">i</button>
+          </div>
           <form id="report-form" novalidate>
             <div class="form-grid">
               <div>
@@ -242,6 +345,7 @@
                 <select id="report-type">
                   <option value="incidencia">Incidencia</option>
                   <option value="sugerencia">Sugerencia</option>
+                  <option value="reclamacion">Reclamación</option>
                 </select>
               </div>
               <div style="grid-column: 1 / -1">
@@ -253,7 +357,95 @@
           </form>
         </div>
       </section>
+
+      <section id="view-sobre" class="hidden">
+        <div class="card">
+          <h2>Sobre RESOLVER</h2>
+          <div id="about-body"></div>
+        </div>
+        <div class="card">
+          <h2>Cómo leer cada módulo</h2>
+          <div id="about-modules" class="list"></div>
+        </div>
+      </section>
+
+      <!-- CUENTA -->
+      <section id="view-cuenta" class="hidden">
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <h2>Mi cuenta</h2>
+            <button type="button" class="info-btn" data-info="cuenta" aria-label="Información de Cuenta">i</button>
+          </div>
+          <p class="muted" id="acc-user" style="margin:0 0 12px"></p>
+          <form id="profile-form" novalidate>
+            <div class="form-grid">
+              <div>
+                <label for="pf-name">Nombre a mostrar</label>
+                <input id="pf-name" maxlength="60" autocomplete="name">
+              </div>
+              <div>
+                <label for="pf-email">Correo (para recuperar la contraseña)</label>
+                <input id="pf-email" type="email" maxlength="120" autocomplete="email">
+              </div>
+              <div>
+                <label for="pf-theme">Tema</label>
+                <select id="pf-theme">
+                  <option value="auto">Automático</option>
+                  <option value="claro">Claro</option>
+                  <option value="oscuro">Oscuro</option>
+                </select>
+              </div>
+              <div>
+                <label for="pf-days">Período por defecto</label>
+                <select id="pf-days">
+                  <option value="7">Últimos 7 días</option>
+                  <option value="14">Últimos 14 días</option>
+                  <option value="30">Últimos 30 días</option>
+                  <option value="1">Solo el día elegido</option>
+                </select>
+              </div>
+              <div>
+                <label for="pf-province">Provincia por defecto</label>
+                <select id="pf-province"><option value="">Ninguna</option></select>
+              </div>
+            </div>
+            <div style="margin-top:12px"><button type="submit">Guardar cambios</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Cambiar contraseña</h2>
+          <form id="password-form" novalidate>
+            <div class="form-grid">
+              <div>
+                <label for="pw-current">Contraseña actual</label>
+                <input id="pw-current" type="password" autocomplete="current-password" maxlength="200">
+              </div>
+              <div>
+                <label for="pw-new">Contraseña nueva (mínimo 10)</label>
+                <input id="pw-new" type="password" autocomplete="new-password" minlength="10" maxlength="200">
+              </div>
+              <div><button type="submit">Cambiar contraseña</button></div>
+            </div>
+          </form>
+          <p class="muted" style="font-size:0.85rem;margin:10px 0 0">Al cambiarla se cierran las demás sesiones abiertas.</p>
+        </div>
+        <div class="card">
+          <h2>Sesiones abiertas</h2>
+          <div id="sessions-list" class="list"></div>
+        </div>
+      </section>
     </main>
+  </div>
+
+  <!-- Ventana de información por módulo -->
+  <div id="info-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="info-title">
+    <div class="modal-card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <h2 id="info-title"></h2>
+        <button type="button" class="secondary small" id="info-close">Cerrar</button>
+      </div>
+      <div id="info-body" class="info-block"></div>
+    </div>
   </div>
 
   <div id="toast" class="toast hidden" role="status"></div>

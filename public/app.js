@@ -1,6 +1,10 @@
 const $ = (id) => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
-const state = { config: null, user: null, groups: [], search: null };
+const state = { config: null, user: null, info: null, search: null, explored: false };
+let authMode = 'login';
+let resetToken = '';
+let historyCache = [];
+let compareSel = [];
 // El contenido de #results lo genera este script; se vacía el marcador inicial.
 $('results').replaceChildren();
 
@@ -22,10 +26,28 @@ function el(tag, attrs = {}, ...children) {
 }
 
 const money = (v, cur) => (v == null ? '—' : `${new Intl.NumberFormat('es', { maximumFractionDigits: 2 }).format(v)} ${cur}`);
+const signed = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v}%`);
 const dateText = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 const shortDay = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('es', { day: '2-digit', month: '2-digit' }) : '');
+const dateTimeText = (iso) => (iso ? new Date(iso).toLocaleString('es', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Havana' }) : '');
 // Hoy en Cuba, no en UTC: después de las 7 p. m. en Cuba la fecha UTC ya es del día siguiente
 const todayHavana = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Havana', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+const ROLE_LABEL = { superadmin: 'Administrador', moderador: 'Moderador', user: 'Usuario' };
+const CONTENT_ROLES = ['superadmin', 'moderador'];
+const EXPLORE_TITLES = {
+  movimiento_precio: 'Movimiento de precio',
+  presencia_creciente: 'Presencia creciente',
+  aumento_disponibilidad: 'Aumento de disponibilidad',
+  disminucion_publicaciones: 'Disminución de publicaciones',
+  precio_inusualmente_bajo: 'Precio inusualmente bajo',
+  precio_inusualmente_alto: 'Precio inusualmente alto',
+  oportunidad_potencial: 'Oportunidad potencial',
+  tendencia_precio: 'Tendencia de precio',
+  diferencia_provincias: 'Diferencia entre provincias',
+  concentracion_fuente: 'Concentración en una fuente',
+};
+const KIND_LABEL = { analysis: 'Análisis', search: 'Búsqueda', signal: 'Señal' };
 
 function toast(message) {
   const t = $('toast');
@@ -37,10 +59,9 @@ function toast(message) {
 
 async function api(path, { method = 'GET', body } = {}) {
   const opts = { method, headers: {}, credentials: 'same-origin' };
-  if (body !== undefined) {
-    opts.headers['Content-Type'] = 'application/json';
-    opts.body = JSON.stringify(body);
-  }
+  // Toda escritura declara JSON, aunque no lleve cuerpo: el servidor lo exige
+  if (method !== 'GET') opts.headers['Content-Type'] = 'application/json';
+  if (body !== undefined) opts.body = JSON.stringify(body);
   let res;
   try {
     res = await fetch(path, opts);
@@ -57,36 +78,82 @@ async function api(path, { method = 'GET', body } = {}) {
   return data;
 }
 
-// ---------- acceso ----------
-let authMode = 'login';
+// ---------- tema ----------
+// Automático sigue al sistema; claro y oscuro se fuerzan con data-theme
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme === 'oscuro') root.setAttribute('data-theme', 'dark');
+  else if (theme === 'claro') root.setAttribute('data-theme', 'light');
+  else root.removeAttribute('data-theme');
+}
 
+// ---------- acceso: entrar, crear cuenta, recuperar y definir contraseña ----------
 function setAuthMode(mode) {
   authMode = mode;
-  document.querySelectorAll('[data-auth]').forEach((b) => b.classList.toggle('active', b.dataset.auth === mode));
-  $('auth-submit').textContent = mode === 'login' ? 'Entrar' : 'Crear cuenta';
+  const tabs = mode === 'login' || mode === 'register';
+  $('auth-tabs').classList.toggle('hidden', !tabs);
+  document.querySelectorAll('#auth-tabs [data-auth]').forEach((b) => b.classList.toggle('active', b.dataset.auth === mode));
+  $('auth-user-wrap').classList.toggle('hidden', mode === 'forgot' || mode === 'reset');
+  $('auth-email-wrap').classList.toggle('hidden', mode !== 'forgot');
+  $('auth-pass-wrap').classList.toggle('hidden', mode === 'forgot');
+  $('auth-forgot').parentElement.classList.toggle('hidden', mode !== 'login');
+  $('auth-back-wrap').classList.toggle('hidden', mode === 'login' || mode === 'register');
+  $('auth-submit').textContent = { login: 'Entrar', register: 'Crear cuenta', forgot: 'Enviar enlace', reset: 'Guardar contraseña' }[mode];
+  $('auth-pass-label').textContent = mode === 'reset' ? 'Nueva contraseña' : 'Contraseña';
   $('auth-pass').setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
-  $('auth-hint').textContent = mode === 'register' ? 'Usuario: 3 a 30 caracteres (letras, números, . _ -). Contraseña: mínimo 10.' : '';
+  $('auth-hint').textContent = mode === 'register' || mode === 'reset' ? 'Mínimo 10 caracteres.' : '';
   $('auth-error').classList.add('hidden');
+  $('auth-info').classList.add('hidden');
 }
 
 function showAuth() {
   state.user = null;
   $('app').classList.add('hidden');
   $('auth').classList.remove('hidden');
+  setAuthMode('login');
 }
 
-document.querySelectorAll('[data-auth]').forEach((b) => b.addEventListener('click', () => setAuthMode(b.dataset.auth)));
+function showAuthError(message) {
+  $('auth-info').classList.add('hidden');
+  $('auth-error').textContent = message;
+  $('auth-error').classList.remove('hidden');
+}
+
+function showAuthInfo(message) {
+  $('auth-error').classList.add('hidden');
+  $('auth-info').textContent = message;
+  $('auth-info').classList.remove('hidden');
+}
+
+document.querySelectorAll('#auth-tabs [data-auth]').forEach((b) => b.addEventListener('click', () => setAuthMode(b.dataset.auth)));
+$('auth-forgot').addEventListener('click', () => setAuthMode('forgot'));
+$('auth-back').addEventListener('click', () => setAuthMode('login'));
 
 $('auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const username = $('auth-user').value.trim().toLowerCase();
-  const password = $('auth-pass').value;
-  const errorBox = $('auth-error');
-  errorBox.classList.add('hidden');
-  if (!username || !password) return showAuthError('Completa usuario y contraseña.');
+  $('auth-error').classList.add('hidden');
   const btn = $('auth-submit');
   btn.disabled = true;
   try {
+    if (authMode === 'forgot') {
+      const email = $('auth-email').value.trim().toLowerCase();
+      if (!email) return showAuthError('Escribe el correo de tu cuenta.');
+      const data = await api('/api/auth/forgot', { method: 'POST', body: { email } });
+      return showAuthInfo(data.message);
+    }
+    if (authMode === 'reset') {
+      const password = $('auth-pass').value;
+      if (password.length < 10) return showAuthError('La contraseña debe tener al menos 10 caracteres.');
+      const data = await api('/api/auth/reset', { method: 'POST', body: { token: resetToken, password } });
+      resetToken = '';
+      history.replaceState({}, '', '/');
+      $('auth-pass').value = '';
+      setAuthMode('login');
+      return showAuthInfo(data.message);
+    }
+    const username = $('auth-user').value.trim().toLowerCase();
+    const password = $('auth-pass').value;
+    if (!username || !password) return showAuthError('Completa usuario y contraseña.');
     const data = await api(authMode === 'login' ? '/api/auth/login' : '/api/auth/register', { method: 'POST', body: { username, password } });
     state.user = data.user;
     $('auth-pass').value = '';
@@ -98,12 +165,6 @@ $('auth-form').addEventListener('submit', async (e) => {
   }
 });
 
-function showAuthError(message) {
-  const box = $('auth-error');
-  box.textContent = message;
-  box.classList.remove('hidden');
-}
-
 $('logout').addEventListener('click', async () => {
   try { await api('/api/auth/logout', { method: 'POST', body: {} }); } catch { /* sesión ya cerrada */ }
   showAuth();
@@ -113,21 +174,64 @@ async function enterApp() {
   $('auth').classList.add('hidden');
   $('app').classList.remove('hidden');
   $('who').textContent = state.user.username;
-  $('admin-link').classList.toggle('hidden', state.user.role !== 'superadmin');
-  if (!state.config) await loadConfig();
+  $('admin-link').classList.toggle('hidden', !CONTENT_ROLES.includes(state.user.role));
+  applyTheme(state.user.preferences?.theme);
+  try {
+    await loadConfig();
+  } catch (err) {
+    toast(err.message);
+  }
+  applyPreferences();
+  if (!state.info) loadInfo();
   setView('inicio');
 }
 
-// ---------- configuración y filtros ----------
+// ---------- configuración, filtros y preferencias ----------
 async function loadConfig() {
   state.config = await api('/api/config');
-  const { provinces, categories, maxPeriodDays } = state.config;
-  for (const p of provinces) $('province').append(el('option', { value: p, text: p }));
-  for (const c of categories) $('category').append(el('option', { value: c, text: c }));
+  const { maxPeriodDays, announcement } = state.config;
+  fillProvinces($('province'));
+  fillProvinces($('ex-province'));
+  fillCategories($('category'));
+  fillCategories($('ex-category'));
   $('days').querySelector('option[value="30"]').textContent = `Últimos ${maxPeriodDays} días`;
+  $('announcement').textContent = announcement || '';
+  $('announcement').classList.toggle('hidden', !announcement);
   const today = todayHavana();
   $('end').max = today;
   $('end').value = today;
+}
+
+function fillProvinces(select, selected = '') {
+  select.replaceChildren(el('option', { value: '', text: select.id === 'pf-province' ? 'Ninguna' : 'Todas' }));
+  for (const p of state.config.provinces) select.append(el('option', { value: p, text: p }));
+  select.value = selected || '';
+}
+
+// Categorías con sus subcategorías agrupadas por rama; elegir una rama incluye todas sus subcategorías
+function fillCategories(select) {
+  select.replaceChildren(el('option', { value: '', text: 'Todas' }));
+  for (const root of state.config.category_tree) {
+    if (root.children.length) {
+      select.append(
+        el(
+          'optgroup',
+          { label: root.name },
+          el('option', { value: root.name, text: `Todo ${root.name}` }),
+          root.children.map((c) => el('option', { value: c.name, text: c.name })),
+        ),
+      );
+    } else {
+      select.append(el('option', { value: root.name, text: root.name }));
+    }
+  }
+}
+
+function applyPreferences() {
+  const prefs = state.user.preferences || {};
+  $('days').value = String(prefs.default_days || 7);
+  $('province').value = prefs.default_province || '';
+  loadMunicipalities(prefs.default_province || '');
 }
 
 async function loadMunicipalities(province, selected = '') {
@@ -147,19 +251,77 @@ async function loadMunicipalities(province, selected = '') {
 
 $('province').addEventListener('change', (e) => loadMunicipalities(e.target.value));
 
-// ---------- navegación ----------
-const VIEWS = ['inicio', 'buscar', 'grupos', 'historial', 'reportes'];
-
-function setView(name) {
-  for (const v of VIEWS) $(`view-${v}`).classList.toggle('hidden', v !== name);
-  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
-  if (name === 'inicio') loadDashboard();
-  if (name === 'grupos') loadGroups();
-  if (name === 'historial') loadHistory();
+async function loadInfo() {
+  try {
+    state.info = await api('/api/info');
+  } catch {
+    /* sin información: los botones "i" avisan si falta */
+  }
 }
 
-document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+// ---------- ventana de información por módulo ----------
+function openInfo(key) {
+  const m = state.info?.modules?.[key];
+  if (!m) return toast('Información no disponible en este momento.');
+  $('info-title').textContent = m.title;
+  const sections = [
+    ['Qué muestra', m.what],
+    ['Cómo se calcula', m.how],
+    ['Cómo interpretarlo', m.interpret],
+    ['De dónde salen los datos', m.sources],
+    ['Límites', m.limits],
+  ];
+  $('info-body').replaceChildren(...sections.flatMap(([heading, text]) => [el('h4', { text: heading }), el('p', { text })]));
+  $('info-modal').classList.remove('hidden');
+  $('info-close').focus();
+}
+
+function closeInfo() {
+  $('info-modal').classList.add('hidden');
+}
+
+$('info-close').addEventListener('click', closeInfo);
+$('info-modal').addEventListener('click', (e) => {
+  if (e.target === $('info-modal')) closeInfo();
+});
+document.addEventListener('click', (e) => {
+  const button = e.target.closest?.('[data-info]');
+  if (button) openInfo(button.dataset.info);
+});
+
+// ---------- navegación ----------
+// Grupos, Reportes y Sobre viven dentro de la pestaña Más
+const SECTIONS = ['inicio', 'buscar', 'explorar', 'historial', 'grupos', 'reportes', 'sobre', 'cuenta'];
+const TAB_OF = { inicio: 'inicio', buscar: 'buscar', explorar: 'explorar', historial: 'historial', cuenta: 'cuenta', grupos: 'mas', reportes: 'mas', sobre: 'mas' };
+
+function setView(name) {
+  const target = name === 'mas' ? 'grupos' : name;
+  if (!SECTIONS.includes(target)) return;
+  const tab = TAB_OF[target];
+  for (const v of SECTIONS) $(`view-${v}`).classList.toggle('hidden', v !== target);
+  document.querySelectorAll('.tabbar [data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === tab));
+  $('mas-bar').classList.toggle('hidden', tab !== 'mas');
+  document.querySelectorAll('#mas-bar [data-go]').forEach((b) => b.classList.toggle('active', b.dataset.go === target));
+  if (target === 'inicio') loadDashboard();
+  if (target === 'grupos') loadGroups();
+  if (target === 'historial') loadHistory();
+  if (target === 'explorar' && !state.explored) loadExplore();
+  if (target === 'cuenta') loadAccount();
+  if (target === 'sobre') renderAbout();
+}
+
+document.querySelectorAll('.tabbar [data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.go)));
+
+// ---------- guardados ----------
+async function saveItem(kind, refId) {
+  try {
+    await api('/api/saves', { method: 'POST', body: { kind, ref_id: refId } });
+    toast('Guardado en tus elementos.');
+  } catch (err) {
+    toast(err.message);
+  }
+}
 
 // ---------- búsqueda ----------
 $('search-form').addEventListener('submit', (e) => {
@@ -183,7 +345,7 @@ function collectFilters() {
 
 // Una búsqueda nueva reemplaza la anterior; "Cargar más" pide la página siguiente con el mismo filtro
 async function runSearch(f) {
-  state.search = { filters: f, nextOffset: null };
+  state.search = { filters: f, nextOffset: null, searchId: null };
   await fetchSearch(false);
 }
 
@@ -206,7 +368,10 @@ async function fetchSearch(more) {
   try {
     const data = await api(`/api/search?${params}`);
     if (more) appendResults(data);
-    else renderResults(data);
+    else {
+      state.search.searchId = data.search_id;
+      renderResults(data);
+    }
   } catch (err) {
     if (more) {
       toast(err.message);
@@ -397,6 +562,48 @@ function outlierCard(outliers) {
   );
 }
 
+// Comparación con el mismo número de días inmediatamente anteriores
+function comparisonCard(cmp) {
+  const lines = [
+    el('p', { class: 'muted', style: 'margin:0 0 10px;font-size:0.85rem', text: `Período anterior: ${dateText(cmp.period.start)} – ${dateText(cmp.period.end)}.` }),
+    el('p', { text: `Publicaciones: ${cmp.current_total} frente a ${cmp.previous_total} (${signed(cmp.posts_change_pct)}).` }),
+  ];
+  for (const [cur, x] of Object.entries(cmp.currencies || {})) {
+    lines.push(
+      el('p', {
+        text:
+          x.current.sufficient && x.previous.sufficient
+            ? `Mediana ${cur}: ${money(x.current.median, cur)} frente a ${money(x.previous.median, cur)} (${signed(x.median_change_pct)}).`
+            : `${cur}: no hay datos suficientes en los dos períodos para comparar precios.`,
+      }),
+    );
+  }
+  return el('div', { class: 'card' }, el('h3', { text: 'Comparación con el período anterior' }), lines);
+}
+
+function municipalityCard(list) {
+  const rows = list.filter((m) => m.sufficient);
+  return el(
+    'div',
+    { class: 'card' },
+    el('h3', { text: 'Precio mediano por municipio' }),
+    rows.length
+      ? el(
+          'div',
+          { class: 'list' },
+          rows.slice(0, 15).map((m) =>
+            el(
+              'div',
+              { class: 'list-item' },
+              el('div', {}, el('div', { class: 'title', text: m.municipality }), el('div', { class: 'muted', text: `${m.province} · ${m.count} publicación(es)` })),
+              el('div', { class: 'muted', text: `Mediana ${money(m.median, m.currency)}` }),
+            ),
+          ),
+        )
+      : el('p', { class: 'muted', style: 'margin:0', text: 'Hacen falta al menos 3 publicaciones por municipio y moneda.' }),
+  );
+}
+
 function renderResults(data) {
   const { analysis: a, period, filters, total, results } = data;
   $('results').replaceChildren();
@@ -417,12 +624,23 @@ function renderResults(data) {
     }
   }
 
-  $('results').append(header, el('div', { class: 'grid-stats' }, cards));
+  $('results').append(
+    header,
+    el(
+      'div',
+      { class: 'row', style: 'margin:0 0 12px' },
+      data.search_id ? el('button', { type: 'button', class: 'small secondary', text: 'Guardar análisis', onclick: () => saveItem('analysis', data.search_id) }) : null,
+      el('button', { type: 'button', class: 'small secondary', text: 'Qué significa esto', 'data-info': 'buscar' }),
+    ),
+    el('div', { class: 'grid-stats' }, cards),
+  );
 
   if (a.warnings.length) $('results').append(el('div', {}, a.warnings.map((w) => el('div', { class: 'alert warn', text: w }))));
 
+  if (data.comparison) $('results').append(comparisonCard(data.comparison));
   $('results').append(signalCard(a.signals, period));
   if (a.outliers && a.outliers.length) $('results').append(outlierCard(a.outliers));
+  if (a.municipalities && a.municipalities.length) $('results').append(municipalityCard(a.municipalities));
 
   const series = Object.entries(a.evolution).filter(([, s]) => s);
   const evoBody = series.length
@@ -458,6 +676,138 @@ function renderResults(data) {
   $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ---------- explorar ----------
+$('explore-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  loadExplore();
+});
+
+async function loadExplore() {
+  state.explored = true;
+  const kind = $('ex-kind').value;
+  const province = $('ex-province').value;
+  const category = $('ex-category').value;
+  if (kind === 'municipios' && !province) {
+    $('explore-results').replaceChildren(el('div', { class: 'alert warn', text: 'Elige una provincia para ver sus municipios.' }));
+    return;
+  }
+  const params = new URLSearchParams({ kind, days: $('ex-days').value });
+  if (province) params.set('province', province);
+  if (category) params.set('category', category);
+  $('explore-results').replaceChildren(el('div', { class: 'skeleton' }));
+  try {
+    renderExplore(await api(`/api/explore?${params}`));
+  } catch (err) {
+    $('explore-results').replaceChildren(el('div', { class: 'alert error', role: 'alert', text: err.message }));
+  }
+}
+
+function itemsOrEmpty(items, render, emptyText) {
+  if (!items || !items.length) return el('p', { class: 'empty', text: emptyText });
+  return el('div', { class: 'list' }, items.map(render));
+}
+
+function productRow(p) {
+  const priceLine = Object.entries(p.byCurrency || {})
+    .map(([c, s]) => (s.sufficient ? `${c}: mediana ${money(s.median, c)}` : `${c}: ${s.count} dato(s), insuficientes`))
+    .join(' · ') || 'Sin precios';
+  return el(
+    'div',
+    { class: 'list-item' },
+    el('div', {}, el('div', { class: 'title', text: p.name }), el('div', { class: 'muted', text: `${p.posts} publicación(es) en ${p.groups} grupo(s)` }), el('div', { class: 'muted', text: priceLine })),
+    el('button', { type: 'button', class: 'small secondary', text: 'Buscar', onclick: () => searchProduct(p.name) }),
+  );
+}
+
+function categoryRow(t) {
+  return el(
+    'div',
+    { class: 'list-item' },
+    el(
+      'div',
+      {},
+      el('div', { class: 'title', text: t.name }),
+      el('div', { class: 'muted', text: `${t.posts} publicación(es)` }),
+      t.children.length ? el('div', { class: 'muted', style: 'font-size:0.85rem', text: t.children.map((c) => `${c.name} (${c.posts})`).join(' · ') }) : null,
+    ),
+  );
+}
+
+function provinceRow(p, currency) {
+  return el(
+    'div',
+    { class: 'list-item' },
+    el('div', {}, el('div', { class: 'title', text: p.province }), el('div', { class: 'muted', text: `${p.posts} publicación(es)` })),
+    el('div', { class: 'muted', text: p.median != null ? `Mediana ${money(p.median, currency)}` : 'Sin precio suficiente' }),
+  );
+}
+
+function municipalityRow(m) {
+  return el(
+    'div',
+    { class: 'list-item' },
+    el('div', {}, el('div', { class: 'title', text: m.municipality }), el('div', { class: 'muted', text: `${m.province} · ${m.count} publicación(es)` })),
+    el('div', { class: 'muted', text: m.sufficient ? `Mediana ${money(m.median, m.currency)}` : 'Datos insuficientes' }),
+  );
+}
+
+function signalRow(s, actions = []) {
+  return el(
+    'div',
+    { class: 'list-item' },
+    el(
+      'div',
+      {},
+      el('div', { class: 'title', text: s.title || EXPLORE_TITLES[s.type] || 'Señal' }),
+      s.description ? el('div', { text: s.description }) : null,
+      el('div', { class: 'signal-meta', text: `${s.evidence ?? ''} ${s.period ? `Período: ${dateText(s.period.start)} – ${dateText(s.period.end)}` : ''}`.trim() }),
+      el('span', { class: 'conf', text: `Confianza ${s.confidence ?? 'baja'}` }),
+    ),
+    actions.length ? el('div', { class: 'row' }, actions) : null,
+  );
+}
+
+function renderExplore(data) {
+  const head = el('p', {
+    class: 'muted',
+    style: 'margin:0 0 6px',
+    text: `${data.total_posts} publicación(es) · ${dateText(data.period.start)} – ${dateText(data.period.end)}${data.window ? ` · ${data.window}` : ''}`,
+  });
+  let body;
+  if (data.kind === 'productos' || data.kind === 'presencia') {
+    body = itemsOrEmpty(data.items, productRow, 'Ningún producto con datos en este período.');
+  } else if (data.kind === 'categorias') {
+    body = itemsOrEmpty(data.tops, categoryRow, 'Sin publicaciones en este período.');
+  } else if (data.kind === 'provincias') {
+    body = itemsOrEmpty(data.items, (p) => provinceRow(p, data.currency), 'Sin publicaciones en este período.');
+  } else if (data.kind === 'municipios') {
+    body = itemsOrEmpty(data.items, municipalityRow, 'Ningún municipio de esta provincia tiene publicaciones en el período.');
+  } else if (data.kind === 'publicaciones') {
+    body = data.items.length ? el('div', { class: 'posts' }, data.items.map(postCard)) : el('p', { class: 'empty', text: 'Sin publicaciones en este período.' });
+  } else if (data.kind === 'movimientos') {
+    body = itemsOrEmpty(data.items, (s) => signalRow(s), 'No hay movimientos con datos suficientes.');
+  } else {
+    body = itemsOrEmpty(
+      data.items,
+      (s) => signalRow(s, [el('button', { type: 'button', class: 'small secondary', text: 'Guardar', onclick: () => saveItem('signal', s.id) })]),
+      'Todavía no hay oportunidades identificadas. Se detectan con varias provincias y datos suficientes.',
+    );
+  }
+  $('explore-results').replaceChildren(head, body);
+}
+
+// Buscar un producto desde Explorar o desde el inicio
+function searchProduct(name) {
+  $('q').value = name;
+  $('brand').value = '';
+  $('model').value = '';
+  $('sort').value = 'fecha_desc';
+  $('days').value = String(state.config.maxPeriodDays);
+  $('end').value = todayHavana();
+  setView('buscar');
+  runSearch(collectFilters());
+}
+
 // ---------- inicio ----------
 async function loadDashboard() {
   try {
@@ -487,17 +837,6 @@ function openPeriod(period) {
   $('category').value = '';
   $('days').value = String(period.days);
   $('end').value = period.end;
-  setView('buscar');
-  runSearch(collectFilters());
-}
-
-function searchProduct(name) {
-  $('q').value = name;
-  $('brand').value = '';
-  $('model').value = '';
-  $('sort').value = 'fecha_desc';
-  $('days').value = String(state.config.maxPeriodDays);
-  $('end').value = todayHavana();
   setView('buscar');
   runSearch(collectFilters());
 }
@@ -537,18 +876,10 @@ function renderDashboard(d) {
   $('dash-signals').replaceChildren(
     ...(d.signals.length
       ? d.signals.map((s) =>
-          el(
-            'div',
-            { class: 'list-item' },
-            el(
-              'div',
-              {},
-              el('div', { class: 'title', text: s.text }),
-              el('div', { class: 'signal-meta', text: `${s.evidence ?? ''} Período: ${dateText(s.period.start)} – ${dateText(s.period.end)}` }),
-              el('span', { class: 'conf', text: `Confianza ${s.confidence ?? 'baja'}` }),
-            ),
+          signalRow(s, [
             el('button', { type: 'button', class: 'small secondary', text: 'Ver análisis', onclick: () => openPeriod(s.period) }),
-          ),
+            el('button', { type: 'button', class: 'small secondary', text: 'Guardar', onclick: () => saveItem('signal', s.id) }),
+          ]),
         )
       : [el('p', { class: 'empty', text: 'Sin señales: hacen falta más publicaciones y varios días con datos.' })]),
   );
@@ -605,21 +936,23 @@ function renderDashboard(d) {
 }
 
 // ---------- grupos ----------
+const GROUP_STATUS = { activo: ['ok', 'Activo'], pausado: ['warn', 'Pausado'], solicitado: ['warn', 'Pendiente de revisión'] };
+
 async function loadGroups() {
   const list = $('groups-list');
   list.replaceChildren(el('div', { class: 'skeleton' }));
   try {
     const { groups } = await api('/api/groups');
-    state.groups = groups;
     list.replaceChildren();
-    if (!groups.length) list.append(el('p', { class: 'muted', text: 'Aún no hay grupos registrados. Agrega el primero arriba.' }));
+    if (!groups.length) list.append(el('p', { class: 'muted', text: 'Aún no hay grupos. Propón el primero arriba.' }));
     for (const g of groups) {
+      const [cls, label] = GROUP_STATUS[g.status] || ['warn', g.status];
       list.append(
         el(
           'div',
           { class: 'list-item' },
           el('div', {}, el('div', { class: 'title', text: g.name }), el('div', { class: 'muted', text: `${g.posts} publicación(es)` })),
-          el('div', { class: 'row' }, el('span', { class: `badge ${g.status === 'activo' ? 'ok' : 'warn'}`, text: g.status === 'activo' ? 'Activo' : 'Pausado' }), el('a', { href: g.url, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir' })),
+          el('div', { class: 'row' }, el('span', { class: `badge ${cls}`, text: label }), el('a', { href: g.url, target: '_blank', rel: 'noopener noreferrer', text: 'Abrir' })),
         ),
       );
     }
@@ -637,38 +970,164 @@ $('group-form').addEventListener('submit', async (e) => {
   try {
     await api('/api/groups', { method: 'POST', body: { name, url } });
     e.target.reset();
-    toast('Grupo agregado.');
+    toast('Propuesta enviada. El equipo la revisará.');
     loadGroups();
   } catch (err) {
     toast(err.message);
   }
 });
 
-// ---------- historial ----------
+// ---------- historial y guardados ----------
+$('history-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  loadHistory();
+});
+
+$('saved-kind').addEventListener('change', loadSaved);
+
 async function loadHistory() {
+  compareSel = [];
+  $('compare-result').replaceChildren();
   const list = $('history-list');
   list.replaceChildren(el('div', { class: 'skeleton' }));
+  const params = new URLSearchParams();
+  if ($('hist-from').value) params.set('from', $('hist-from').value);
+  if ($('hist-to').value) params.set('to', $('hist-to').value);
   try {
-    const { searches } = await api('/api/searches');
-    list.replaceChildren();
-    if (!searches.length) list.append(el('p', { class: 'muted', text: 'Todavía no has hecho búsquedas.' }));
-    for (const s of searches) {
-      list.append(
-        el(
-          'div',
-          { class: 'list-item' },
-          el('div', {}, el('div', { class: 'title', text: s.q || '(sin texto)' }), el('div', { class: 'muted', text: `${filtersText(s)} · ${s.total} resultado(s)` })),
-          el(
-            'div',
-            { class: 'row' },
-            el('button', { type: 'button', class: 'small', text: 'Repetir', onclick: () => repeatSearch(s) }),
-            el('button', { type: 'button', class: 'small secondary', text: 'Borrar', onclick: () => deleteSearch(s.id) }),
-          ),
-        ),
-      );
-    }
+    const { searches } = await api(`/api/searches?${params}`);
+    historyCache = searches;
+    renderHistory();
   } catch (err) {
     list.replaceChildren(el('div', { class: 'alert error', text: err.message }));
+  }
+  loadSaved();
+}
+
+function renderHistory() {
+  const list = $('history-list');
+  list.replaceChildren();
+  if (!historyCache.length) list.append(el('p', { class: 'muted', text: 'Todavía no hay búsquedas en este período.' }));
+  for (const s of historyCache) {
+    const selected = compareSel.some((x) => x.id === s.id);
+    list.append(
+      el(
+        'div',
+        { class: 'list-item' },
+        el('div', {}, el('div', { class: 'title', text: s.q || '(sin texto)' }), el('div', { class: 'muted', text: `${filtersText(s)} · ${s.total} resultado(s)` }), el('div', { class: 'muted', text: dateTimeText(s.created_at) })),
+        el(
+          'div',
+          { class: 'row' },
+          el('button', { type: 'button', class: 'small', text: 'Repetir', onclick: () => repeatSearch(s) }),
+          s.summary ? el('button', { type: 'button', class: 'small secondary', text: 'Guardar análisis', onclick: () => saveItem('analysis', s.id) }) : null,
+          el('button', { type: 'button', class: 'small secondary', text: selected ? 'Quitar de comparación' : 'Comparar', onclick: () => toggleCompare(s) }),
+          el('button', { type: 'button', class: 'small secondary', text: 'Borrar', onclick: () => deleteSearch(s.id) }),
+        ),
+      ),
+    );
+  }
+  updateCompareButton();
+}
+
+function toggleCompare(s) {
+  const i = compareSel.findIndex((x) => x.id === s.id);
+  if (i >= 0) compareSel.splice(i, 1);
+  else if (compareSel.length < 2) compareSel.push(s);
+  else return toast('Solo puedes comparar dos búsquedas. Quita una para elegir otra.');
+  $('compare-result').replaceChildren();
+  renderHistory();
+}
+
+function updateCompareButton() {
+  const btn = $('compare-go');
+  btn.textContent = `Comparar seleccionadas (${compareSel.length}/2)`;
+  btn.disabled = compareSel.length !== 2;
+}
+
+$('compare-go').addEventListener('click', async () => {
+  if (compareSel.length !== 2) return;
+  const [a, b] = compareSel;
+  try {
+    renderComparison(await api(`/api/searches/compare?a=${encodeURIComponent(a.id)}&b=${encodeURIComponent(b.id)}`));
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+function renderComparison(r) {
+  const side = (search, stats, cur) => `${search.q || 'Sin texto'}: ${stats?.sufficient ? `mediana ${money(stats.median, cur)}` : 'datos insuficientes'}`;
+  const rows = Object.entries(r.currencies).map(([cur, c]) =>
+    el(
+      'div',
+      { class: 'list-item' },
+      el('div', {}, el('div', { class: 'title', text: cur }), el('div', { class: 'muted', text: side(r.a, c.a, cur) }), el('div', { class: 'muted', text: side(r.b, c.b, cur) })),
+      el('span', { class: 'badge', text: c.median_change_pct == null ? 'Sin comparación' : `${signed(c.median_change_pct)} (B frente a A)` }),
+    ),
+  );
+  $('compare-result').replaceChildren(
+    el(
+      'div',
+      { class: 'card' },
+      el('h3', { text: 'Comparación de búsquedas' }),
+      el('p', { class: 'muted', style: 'margin:0 0 10px;font-size:0.85rem', text: `A: ${r.a.q || 'Sin texto'} (${r.a.total} resultado(s)) · B: ${r.b.q || 'Sin texto'} (${r.b.total} resultado(s))` }),
+      rows.length ? el('div', { class: 'list' }, rows) : el('p', { class: 'muted', style: 'margin:0', text: 'Ninguna de las dos tiene precios suficientes para comparar.' }),
+    ),
+  );
+}
+
+async function deleteSearch(id) {
+  try {
+    await api(`/api/searches/${id}`, { method: 'DELETE', body: {} });
+    loadHistory();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function loadSaved() {
+  const box = $('saved-list');
+  box.replaceChildren(el('div', { class: 'skeleton' }));
+  const kind = $('saved-kind').value;
+  try {
+    const { saves } = await api(`/api/saves${kind ? `?kind=${kind}` : ''}`);
+    box.replaceChildren(
+      ...(saves.length
+        ? saves.map(savedRow)
+        : [el('p', { class: 'empty', text: 'Todavía no guardas nada. Usa «Guardar» en un análisis o en una señal.' })]),
+    );
+  } catch (err) {
+    box.replaceChildren(el('div', { class: 'alert error', text: err.message }));
+  }
+}
+
+function savedRow(s) {
+  const snap = s.snapshot || {};
+  const detail = s.kind === 'signal' ? [snap.description, snap.evidence].filter(Boolean).join(' ') : snap.period ? filtersText(snap) : '';
+  const actions = [];
+  if (s.kind === 'signal') actions.push(el('button', { type: 'button', class: 'small secondary', text: 'Ver análisis', onclick: () => openPeriod(snap.period) }));
+  else actions.push(el('button', { type: 'button', class: 'small', text: 'Abrir', onclick: () => repeatSearch(snap) }));
+  actions.push(el('button', { type: 'button', class: 'small secondary', text: 'Quitar', onclick: () => removeSave(s.id) }));
+  return el(
+    'div',
+    { class: 'list-item' },
+    el(
+      'div',
+      {},
+      el('div', { class: 'muted', text: KIND_LABEL[s.kind] || s.kind }),
+      el('div', { class: 'title', text: s.label || '(sin texto)' }),
+      detail ? el('div', { class: 'muted', text: detail }) : null,
+      s.kind === 'analysis' && snap.summary ? el('div', { class: 'muted', text: priceSummaryText(snap.summary.prices) }) : null,
+      el('div', { class: 'muted', text: `Guardado el ${dateTimeText(s.created_at)}` }),
+    ),
+    el('div', { class: 'row' }, actions),
+  );
+}
+
+async function removeSave(id) {
+  try {
+    await api(`/api/saves/${id}`, { method: 'DELETE', body: {} });
+    loadSaved();
+  } catch (err) {
+    toast(err.message);
   }
 }
 
@@ -686,13 +1145,111 @@ async function repeatSearch(s) {
   runSearch(collectFilters());
 }
 
-async function deleteSearch(id) {
+// ---------- cuenta ----------
+async function loadAccount() {
   try {
-    await api(`/api/searches/${id}`, { method: 'DELETE', body: {} });
-    loadHistory();
+    const [{ user }, { sessions }] = await Promise.all([api('/api/profile'), api('/api/profile/sessions')]);
+    state.user = user;
+    $('acc-user').textContent = `Usuario: ${user.username} · ${ROLE_LABEL[user.role] || user.role}`;
+    $('pf-name').value = user.display_name || '';
+    $('pf-email').value = user.email || '';
+    $('pf-theme').value = user.preferences.theme;
+    $('pf-days').value = String(user.preferences.default_days);
+    fillProvinces($('pf-province'), user.preferences.default_province);
+    renderSessions(sessions);
   } catch (err) {
     toast(err.message);
   }
+}
+
+function renderSessions(sessions) {
+  $('sessions-list').replaceChildren(
+    ...sessions.map((s) =>
+      el(
+        'div',
+        { class: 'list-item' },
+        el('div', {}, el('div', { class: 'title', text: `Iniciada el ${dateTimeText(s.created_at)}` }), el('div', { class: 'muted', text: `Vence el ${dateTimeText(s.expires_at)}` })),
+        s.current
+          ? el('span', { class: 'badge ok', text: 'Esta sesión' })
+          : el('button', { type: 'button', class: 'small secondary', text: 'Cerrar', onclick: () => closeSession(s.id) }),
+      ),
+    ),
+  );
+}
+
+async function closeSession(id) {
+  try {
+    await api(`/api/profile/sessions/${id}`, { method: 'DELETE', body: {} });
+    toast('Sesión cerrada.');
+    loadAccount();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+$('profile-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const { user } = await api('/api/profile', {
+      method: 'PATCH',
+      body: {
+        display_name: $('pf-name').value.trim(),
+        email: $('pf-email').value.trim().toLowerCase(),
+        preferences: {
+          theme: $('pf-theme').value,
+          default_days: Number($('pf-days').value),
+          default_province: $('pf-province').value,
+        },
+      },
+    });
+    state.user = user;
+    applyTheme(user.preferences.theme);
+    toast('Cambios guardados.');
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$('password-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const current = $('pw-current').value;
+  const password = $('pw-new').value;
+  if (password.length < 10) return toast('La contraseña nueva debe tener al menos 10 caracteres.');
+  try {
+    await api('/api/profile/password', { method: 'POST', body: { current, password } });
+    e.target.reset();
+    toast('Contraseña cambiada. Las demás sesiones se cerraron.');
+    loadAccount();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// ---------- sobre RESOLVER ----------
+function renderAbout() {
+  const a = state.info?.about;
+  if (!a) {
+    $('about-body').replaceChildren(el('p', { class: 'muted', text: 'Información no disponible en este momento.' }));
+    return;
+  }
+  $('about-body').replaceChildren(
+    el('p', { text: `${a.product} · ${a.slogan}` }),
+    el('p', { class: 'muted', text: `Empresa: ${a.company}. Fundador: ${a.founder}.` }),
+    el('p', { text: a.description }),
+    el('p', { text: a.not }),
+    el('ul', {}, a.principles.map((p) => el('li', { text: p }))),
+  );
+  const modules = state.info.modules;
+  $('about-modules').replaceChildren(
+    ...Object.entries(modules).map(([key, m]) =>
+      el(
+        'div',
+        { class: 'list-item' },
+        el('div', {}, el('div', { class: 'title', text: m.title }), el('div', { class: 'muted', text: m.what })),
+        el('button', { type: 'button', class: 'small secondary', text: 'Leer', 'data-info': key }),
+      ),
+    ),
+  );
 }
 
 // ---------- reportes ----------
@@ -711,6 +1268,7 @@ $('report-form').addEventListener('submit', async (e) => {
 
 // ---------- arranque ----------
 (async function boot() {
+  resetToken = new URLSearchParams(location.search).get('reset') || '';
   try {
     const { user } = await api('/api/me');
     if (!user) throw new Error('Sin sesión.');
@@ -718,6 +1276,6 @@ $('report-form').addEventListener('submit', async (e) => {
     await enterApp();
   } catch {
     showAuth();
-    setAuthMode('login');
+    setAuthMode(resetToken ? 'reset' : 'login');
   }
 })();

@@ -265,6 +265,7 @@ test('grupo, carga y búsqueda con análisis, comparación y guardados', async (
   const s1 = await call('GET', '/api/search?q=iphone&days=7', { cookie: userCookie });
   assert.equal(s1.status, 200);
   assert.equal(s1.json.total, 4);
+  assert.ok(Number.isInteger(s1.json.search_id) || typeof s1.json.search_id === 'string', 'la primera página devuelve el identificador para guardar');
   assert.equal(s1.json.analysis.prices.USD.sufficient, true);
   assert.ok(Array.isArray(s1.json.analysis.municipalities));
   assert.ok(s1.json.comparison && typeof s1.json.comparison.total === 'number');

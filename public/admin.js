@@ -1,5 +1,9 @@
 const $ = (id) => document.getElementById(id);
 const state = { config: null, user: null, focusGroupId: '' };
+// Moderador: contenido. Superadministrador: además usuarios, estadísticas, errores y configuración.
+const CONTENT_ROLES = ['superadmin', 'moderador'];
+const isSuper = () => state.user?.role === 'superadmin';
+const ROLE_LABEL = { superadmin: 'Superadministrador', moderador: 'Moderador', user: 'Usuario' };
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -68,9 +72,9 @@ $('admin-login-form').addEventListener('submit', async (e) => {
   const password = $('admin-pass').value;
   try {
     const { user } = await api('/api/auth/login', { method: 'POST', body: { username, password } });
-    if (user.role !== 'superadmin') {
+    if (!CONTENT_ROLES.includes(user.role)) {
       await api('/api/auth/logout', { method: 'POST', body: {} }).catch(() => {});
-      return showLogin('Esta sección es solo para el administrador.');
+      return showLogin('Esta sección es solo para el equipo de administración.');
     }
     $('admin-pass').value = '';
     await enterAdmin(user);
@@ -89,7 +93,8 @@ async function enterAdmin(user) {
   $('admin-login').classList.add('hidden');
   $('admin-app').classList.remove('hidden');
   $('admin-logout').classList.remove('hidden');
-  $('admin-who').textContent = user.username;
+  $('admin-who').textContent = `${user.username} · ${ROLE_LABEL[user.role]}`;
+  document.querySelectorAll('[data-super]').forEach((b) => b.classList.toggle('hidden', !isSuper()));
   if (!state.config) state.config = await api('/api/config');
   showPanel('resumen');
 }
@@ -102,12 +107,19 @@ const panels = {
   historial: renderHistory,
   manual: renderManual,
   publicaciones: renderPosts,
-  usuarios: renderUsers,
+  senales: renderSignals,
   categorias: renderCategories,
   reportes: renderReports,
+  fuentes: renderSources,
+  supervision: renderSupervision,
+  usuarios: renderUsers,
+  estadisticas: renderStats,
+  errores: renderErrors,
+  configuracion: renderSettings,
 };
 
 function showPanel(name) {
+  if (!panels[name] || (!isSuper() && document.querySelector(`[data-panel="${name}"][data-super]`))) name = 'resumen';
   document.querySelectorAll('[data-panel]').forEach((b) => b.classList.toggle('active', b.dataset.panel === name));
   $('panel').replaceChildren(el('div', { class: 'skeleton' }));
   panels[name]().catch((err) => $('panel').replaceChildren(el('div', { class: 'alert error', text: err.message })));
@@ -493,7 +505,7 @@ async function renderUsers() {
       'tr',
       {},
       td(el('strong', { text: u.username })),
-      td(u.role === 'superadmin' ? el('span', { class: 'badge', text: 'Superadministrador' }) : 'Usuario'),
+      td(roleControl(u)),
       td(el('span', { class: `badge ${u.disabled ? 'bad' : 'ok'}`, text: u.disabled ? 'Desactivada' : 'Activa' })),
       td(when(u.created_at)),
       td(actions),
@@ -503,43 +515,46 @@ async function renderUsers() {
 }
 
 // ---------- categorías ----------
+// Las categorías no se eliminan: se desactivan y dejan de ofrecerse en el buscador.
 async function renderCategories() {
-  const { categories } = await api('/api/admin/categories');
-  const input = el('input', { id: 'cat-name', maxlength: 60, placeholder: 'Nueva categoría' });
-  const rows = categories.map((c) =>
+  const { categories, tree } = await api('/api/admin/categories');
+  const roots = categories.filter((c) => c.parent === null);
+  const nameInput = el('input', { id: 'cat-name', maxlength: 60, placeholder: 'Nombre de la categoría' });
+  const parent = el(
+    'select',
+    { id: 'cat-parent' },
+    el('option', { value: '', text: 'Categoría principal (nueva rama)' }),
+    roots.map((r) => el('option', { value: r.name, text: `Subcategoría de ${r.name}` })),
+  );
+  const addBtn = el('button', {
+    type: 'button',
+    class: 'small',
+    text: 'Agregar',
+    onclick: async () => {
+      try {
+        await api('/api/admin/categories', { method: 'POST', body: { name: nameInput.value.trim(), parent: parent.value || null } });
+        state.config = await api('/api/config');
+        toast('Categoría agregada.');
+        showPanel('categorias');
+      } catch (err) {
+        toast(err.message);
+      }
+    },
+  });
+  const categoryRow = (c, indent) =>
     el(
       'tr',
       {},
-      td(c.name),
+      td(el('span', { style: indent ? 'padding-left:18px' : '', text: indent ? `↳ ${c.name}` : c.name })),
+      td(el('span', { class: `badge ${c.active ? 'ok' : 'warn'}`, text: c.active ? 'Activa' : 'Desactivada' })),
       td(
         el('button', {
           type: 'button',
-          class: 'small danger',
-          text: 'Eliminar',
-          onclick: async () => {
-            if (!window.confirm(`¿Quitar la categoría "${c.name}" de la lista? Las publicaciones ya cargadas conservan su texto.`)) return;
-            await api(`/api/admin/categories/${c.id}`, { method: 'DELETE', body: {} });
-            state.config = await api('/api/config');
-            showPanel('categorias');
-          },
-        }),
-      ),
-    ),
-  );
-  $('panel').replaceChildren(
-    card(
-      'Categorías de producto',
-      el(
-        'div',
-        { class: 'row', style: 'margin-bottom:12px' },
-        el('div', { style: 'flex:1' }, input),
-        el('button', {
-          type: 'button',
-          class: 'small',
-          text: 'Agregar',
+          class: 'small secondary',
+          text: c.active ? 'Desactivar' : 'Reactivar',
           onclick: async () => {
             try {
-              await api('/api/admin/categories', { method: 'POST', body: { name: input.value.trim() } });
+              await api(`/api/admin/categories/${c.id}`, { method: 'PATCH', body: { active: !c.active } });
               state.config = await api('/api/config');
               showPanel('categorias');
             } catch (err) {
@@ -548,7 +563,244 @@ async function renderCategories() {
           },
         }),
       ),
-      table(['Nombre', ''], rows),
+    );
+  const rows = tree.flatMap((root) => [categoryRow(root, false), ...root.children.map((c) => categoryRow(c, true))]);
+  $('panel').replaceChildren(
+    card(
+      'Categorías de producto',
+      el('p', { class: 'muted', text: 'Las categorías no se eliminan: puedes desactivarlas y dejan de ofrecerse en el buscador. Las publicaciones conservan su categoría.' }),
+      el(
+        'div',
+        { class: 'form-grid', style: 'margin-bottom:12px' },
+        el('div', {}, el('label', { text: 'Nombre' }), nameInput),
+        el('div', {}, el('label', { text: 'Ubicación' }), parent),
+        el('div', {}, addBtn),
+      ),
+      table(['Categoría', 'Estado', ''], rows),
+    ),
+  );
+}
+
+// ---------- rol de usuario (superadministrador) ----------
+function roleControl(u) {
+  if (u.role === 'superadmin') return el('span', { class: 'badge', text: ROLE_LABEL.superadmin });
+  return el(
+    'select',
+    {
+      'aria-label': `Rol de ${u.username}`,
+      onchange: async (e) => {
+        try {
+          await api(`/api/admin/users/${u.id}`, { method: 'PATCH', body: { role: e.target.value } });
+          toast('Rol actualizado.');
+        } catch (err) {
+          toast(err.message);
+          showPanel('usuarios');
+        }
+      },
+    },
+    [['user', 'Usuario'], ['moderador', 'Moderador']].map(([value, text]) => el('option', { value, text, selected: u.role === value })),
+  );
+}
+
+// ---------- señales ----------
+async function renderSignals() {
+  const { signals } = await api('/api/admin/signals');
+  const syncBtn = el('button', {
+    type: 'button',
+    class: 'small',
+    text: 'Buscar señales nuevas',
+    onclick: async () => {
+      try {
+        const r = await api('/api/admin/signals/sync', { method: 'POST', body: {} });
+        toast(`Candidatas: ${r.candidates} · Nuevas: ${r.created}`);
+        showPanel('senales');
+      } catch (err) {
+        toast(err.message);
+      }
+    },
+  });
+  const rows = signals.map((s) =>
+    el(
+      'tr',
+      {},
+      td(when(s.detected_at)),
+      td(el('strong', { text: s.title || s.type }), el('div', { class: 'muted', text: s.description || '' })),
+      td(s.confidence || ''),
+      td(s.evidence || ''),
+      td(el('span', { class: `badge ${s.status === 'activa' ? 'ok' : 'warn'}`, text: s.status })),
+      td(
+        el('button', {
+          type: 'button',
+          class: 'small secondary',
+          text: s.status === 'activa' ? 'Retirar' : 'Reactivar',
+          onclick: async () => {
+            try {
+              await api(`/api/admin/signals/${s.id}`, { method: 'PATCH', body: { status: s.status === 'activa' ? 'retirada' : 'activa' } });
+              showPanel('senales');
+            } catch (err) {
+              toast(err.message);
+            }
+          },
+        }),
+      ),
+    ),
+  );
+  $('panel').replaceChildren(
+    card(
+      'Señales detectadas',
+      el('p', { class: 'muted', text: 'Son observaciones con evidencia y nivel de confianza, no hechos confirmados. Retirar una señal la oculta a los usuarios, sin borrarla.' }),
+      el('div', { style: 'margin-bottom:12px' }, syncBtn),
+      table(['Detectada', 'Señal', 'Confianza', 'Evidencia', 'Estado', ''], rows),
+    ),
+  );
+}
+
+// ---------- fuentes ----------
+// Ninguna fuente aparece como conectada sin un adaptador real. Las pendientes documentan qué falta para conectarlas.
+async function renderSources() {
+  const { sources } = await api('/api/admin/sources');
+  const key = el('input', { maxlength: 40, placeholder: 'clave-corta (ej.: mercado-x)' });
+  const name = el('input', { maxlength: 120, placeholder: 'Nombre de la fuente' });
+  const note = el('input', { maxlength: 500, placeholder: 'Qué falta para conectarla' });
+  const addBtn = el('button', {
+    type: 'button',
+    class: 'small',
+    text: 'Registrar fuente pendiente',
+    onclick: async () => {
+      try {
+        await api('/api/admin/sources', { method: 'POST', body: { key: key.value.trim(), name: name.value.trim(), note: note.value.trim() } });
+        toast('Fuente registrada como pendiente.');
+        showPanel('fuentes');
+      } catch (err) {
+        toast(err.message);
+      }
+    },
+  });
+  const rows = sources.map((s) =>
+    el(
+      'tr',
+      {},
+      td(el('strong', { text: s.name }), el('div', { class: 'muted', text: s.key })),
+      td(s.kind === 'manual' ? 'Carga manual' : 'Pendiente de conexión'),
+      td(el('span', { class: `badge ${s.status === 'activa' ? 'ok' : 'warn'}`, text: s.status })),
+      td(s.note || ''),
+      td(
+        s.kind === 'manual'
+          ? el('button', {
+              type: 'button',
+              class: 'small secondary',
+              text: s.status === 'activa' ? 'Pausar' : 'Activar',
+              onclick: async () => {
+                try {
+                  await api(`/api/admin/sources/${s.id}`, { method: 'PATCH', body: { status: s.status === 'activa' ? 'pausada' : 'activa' } });
+                  showPanel('fuentes');
+                } catch (err) {
+                  toast(err.message);
+                }
+              },
+            })
+          : el('span', { class: 'muted', text: 'Sin adaptador' }),
+      ),
+    ),
+  );
+  $('panel').replaceChildren(
+    card(
+      'Fuentes de datos',
+      el('p', { class: 'muted', text: 'Solo la carga manual está activa. Las demás se documentan hasta tener permiso o un acuerdo de datos; no se marcan como conectadas antes.' }),
+      el('div', { class: 'form-grid', style: 'margin-bottom:12px' }, el('div', {}, el('label', { text: 'Clave' }), key), el('div', {}, el('label', { text: 'Nombre' }), name), el('div', {}, el('label', { text: 'Nota' }), note), el('div', {}, addBtn)),
+      table(['Fuente', 'Tipo', 'Estado', 'Nota', ''], rows),
+    ),
+  );
+}
+
+// ---------- supervisión de análisis ----------
+async function renderSupervision() {
+  const { searches } = await api('/api/admin/searches');
+  const rows = searches.map((s) =>
+    el(
+      'tr',
+      {},
+      td(when(s.created_at)),
+      td(s.username),
+      td(s.q || '—'),
+      td([s.filters?.province, s.filters?.municipality, s.filters?.category, s.filters?.brand, s.filters?.model].filter(Boolean).join(' · ') || '—'),
+      td(`${s.period.days} d`),
+      td(String(s.total)),
+    ),
+  );
+  $('panel').replaceChildren(
+    card('Búsquedas de usuarios', el('p', { class: 'muted', text: 'Búsquedas recientes de todos los usuarios, para supervisar el uso del servicio.' }), table(['Fecha', 'Usuario', 'Texto', 'Filtros', 'Período', 'Resultados'], rows)),
+  );
+}
+
+// ---------- estadísticas (superadministrador) ----------
+async function renderStats() {
+  const s = await api('/api/admin/stats');
+  const stat = (label, value, sub) =>
+    el('div', { class: 'card stat', style: 'margin:0' }, el('div', { class: 'label', text: label }), el('div', { class: 'value', text: String(value) }), sub ? el('div', { class: 'sub', text: sub }) : null);
+  $('panel').replaceChildren(
+    card(
+      'Estadísticas del servicio',
+      el(
+        'div',
+        { class: 'grid-stats' },
+        stat('Usuarios', s.users.total, `${s.users.disabled} desactivado(s)`),
+        stat('Sesiones activas', s.sessions_active),
+        stat('Grupos activos', s.groups.active, `${s.groups.pending} pendiente(s) de revisión`),
+        stat('Publicaciones', s.posts),
+        stat('Cargas', s.imports),
+        stat('Búsquedas', s.searches),
+        stat('Elementos guardados', s.saves),
+        stat('Señales activas', s.signals.active, `${s.signals.retired} retirada(s)`),
+        stat('Reportes abiertos', s.reports.open, `${s.reports.total} en total`),
+        stat('Errores registrados', s.errors),
+      ),
+      el('p', {
+        class: 'muted',
+        text: `Almacenamiento: ${s.storage === 'supabase' ? 'Supabase (permanente)' : 'archivo local'}. Correo de recuperación: ${s.recovery_mail}. Tiempo activo: ${Math.round(s.uptime_seconds / 60)} min. Node ${s.node}.`,
+      }),
+    ),
+  );
+}
+
+// ---------- errores (superadministrador) ----------
+async function renderErrors() {
+  const { errors } = await api('/api/admin/errors');
+  const rows = errors.map((e) => el('tr', {}, td(when(e.created_at)), td(e.kind), td(e.message), td(e.path || '—')));
+  $('panel').replaceChildren(
+    card('Registro de errores', el('p', { class: 'muted', text: 'Errores del servidor y avisos que requieren atención. El registro no se borra.' }), table(['Fecha', 'Tipo', 'Mensaje', 'Ruta'], rows)),
+  );
+}
+
+// ---------- configuración (superadministrador) ----------
+async function renderSettings() {
+  const { settings } = await api('/api/admin/settings');
+  const announcement = el('textarea', { id: 'set-announcement', maxlength: 300, text: settings.announcement || '' });
+  const days = el(
+    'select',
+    { id: 'set-days' },
+    [1, 7, 14, 30].map((d) => el('option', { value: String(d), text: d === 1 ? 'Solo el día elegido' : `Últimos ${d} días`, selected: settings.default_days === d })),
+  );
+  const saveBtn = el('button', {
+    type: 'button',
+    text: 'Guardar configuración',
+    onclick: async () => {
+      try {
+        await api('/api/admin/settings', { method: 'PATCH', body: { announcement: announcement.value.trim(), default_days: Number(days.value) } });
+        state.config = await api('/api/config');
+        toast('Configuración guardada.');
+      } catch (err) {
+        toast(err.message);
+      }
+    },
+  });
+  $('panel').replaceChildren(
+    card(
+      'Configuración',
+      el('label', { text: 'Aviso para todos los usuarios (vacío = sin aviso)' }),
+      announcement,
+      el('div', { class: 'form-grid', style: 'margin-top:12px' }, el('div', {}, el('label', { text: 'Período por defecto de la app' }), days)),
+      el('div', { style: 'margin-top:12px' }, saveBtn),
     ),
   );
 }
@@ -577,7 +829,7 @@ async function renderReports() {
 (async function boot() {
   try {
     const { user } = await api('/api/me');
-    if (!user || user.role !== 'superadmin') return showLogin();
+    if (!user || !CONTENT_ROLES.includes(user.role)) return showLogin();
     await enterAdmin(user);
   } catch {
     showLogin();

@@ -476,8 +476,9 @@ export function createApp(store, options = {}) {
     const nextOffset = offset + page.length < matched.length ? offset + page.length : null;
 
     // Solo la primera página entra al historial; "Cargar más" no duplica la búsqueda
+    let searchId = null;
     if (offset === 0) {
-      store.insert('searches', {
+      const recorded = store.insert('searches', {
         user_id: ctx.user.id,
         q: text,
         filters: { province, municipality, category, brand, model, sort },
@@ -485,12 +486,14 @@ export function createApp(store, options = {}) {
         total: matched.length,
         summary: { sources: analysis.sources, prices: analysis.prices },
       });
+      searchId = recorded.id;
     }
 
     ctx.json(200, {
       period,
       filters: { q: text, province, municipality, category, brand, model, sort },
       total: matched.length,
+      search_id: searchId,
       offset,
       limit,
       next_offset: nextOffset,
