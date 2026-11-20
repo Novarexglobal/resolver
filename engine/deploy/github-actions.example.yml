@@ -1,0 +1,26 @@
+# PLANTILLA INACTIVA. No se ejecuta porque está fuera de .github/workflows.
+# Antes de usarla hace falta un almacén persistente del motor: el estado en archivo se pierde entre ejecuciones de GitHub Actions.
+# Los secretos se configuran en el repositorio (Settings > Secrets), nunca aquí.
+name: Motor de datos RESOLVER (plantilla)
+
+on:
+  workflow_dispatch: {}
+  # schedule:
+  #   - cron: '0 */6 * * *'   # activar solo cuando el almacén sea persistente
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RESOLVER_URL: ${{ secrets.RESOLVER_URL }}
+      RESOLVER_ENGINE_USER: ${{ secrets.RESOLVER_ENGINE_USER }}
+      RESOLVER_ENGINE_PASSWORD: ${{ secrets.RESOLVER_ENGINE_PASSWORD }}
+      ENGINE_GROUP_MAP: ${{ secrets.ENGINE_GROUP_MAP }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node engine/cli.js check
+      - run: node engine/cli.js run
