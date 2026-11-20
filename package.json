@@ -12,6 +12,7 @@
     "create-superadmin": "node --env-file-if-exists=.env scripts/create-superadmin.js",
     "test": "node --test tests/*.test.js tests/engine/*.test.js",
     "test:e2e": "node tests/e2e/browser.cjs",
-    "engine": "node engine/cli.js"
+    "engine": "node engine/cli.js",
+    "respaldo": "node scripts/respaldo.js"
   }
 }

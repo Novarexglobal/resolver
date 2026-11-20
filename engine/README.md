@@ -70,7 +70,8 @@ Para **añadir una fuente**, escriba un adaptador con esta forma (`adapters/base
 
 | Variable | Obligatoria | Para qué |
 |---|---|---|
-| `ENGINE_STATE_FILE` | No (por defecto `engine/data/estado.json`) | Estado del motor. |
+| `ENGINE_SUPABASE_URL` y `ENGINE_SUPABASE_KEY` | Sí, en producción | Estado del motor en Supabase (`public.engine_state`). La clave es de servicio: secreto de GitHub, nunca en el código. Deben darse juntas. |
+| `ENGINE_STATE_FILE` | No (por defecto `engine/data/estado.json`, solo sin Supabase) | Estado del motor en archivo local. |
 | `ENGINE_INBOX_DIR` / `ENGINE_PROCESSED_DIR` | No | Carpetas de entrada y de procesados. |
 | `ENGINE_GROUP_MAP` | Si hay destino RESOLVER | JSON `{"clave-de-fuente":"id-del-grupo-en-RESOLVER"}`. Cada fuente se entrega a un único grupo. |
 | `RESOLVER_URL` | Para sincronizar | Dirección de RESOLVER, por ejemplo `https://resolver-hinojova.onrender.com`. |
@@ -87,19 +88,30 @@ node engine/cli.js sources               # estado de cada fuente
 node engine/cli.js run                   # ejecuta todas las fuentes conectadas
 node engine/cli.js run --source carpeta-manual
 node engine/cli.js status                # ejecuciones, errores, cuarentena y señales
+node engine/cli.js cuarentena            # filas pendientes de revisión, con sus motivos
+node engine/cli.js cuarentena revisar <id> --nota "…"   # marca como revisada (no se borra)
+node engine/cli.js check                 # ahora también muestra dónde se guarda el estado
 node engine/cli.js watch --every 60      # ejecuta cada 60 minutos (mínimo 5), hasta detenerlo
-npm test                                 # pruebas de RESOLVER y del motor
+npm test                                 # pruebas de RESOLVER y del motor (151)
+npm run respaldo                         # copia de seguridad a Supabase (necesita variables de entorno)
 ```
 
 ## Programación
 
-El motor no se ejecuta solo. Opciones, de la más simple a la más robusta:
+El motor corre en **GitHub Actions**, gratis en repositorio público (`.github/workflows/motor.yml`, cada 6 horas, y manual con «Run workflow»). Plan gratuito de Render: no tiene tareas programadas, así que no se usa.
 
-1. **Manual**: `node engine/cli.js run` cuando lleguen archivos.
-2. **Proceso propio**: `node engine/cli.js watch --every 60` en un servicio que se mantenga encendido.
-3. **Cron externo** que ejecute `run` (el sistema operativo, o un servicio de tareas programadas).
+- **Estado**: en Supabase (`public.engine_state`, plan gratuito). La tarea falla con un aviso si falta `ENGINE_SUPABASE_URL` o `ENGINE_SUPABASE_KEY`, porque sin estado guardado el motor no debe correr.
+- **Guardado antes de mover archivos**: el motor guarda en Supabase antes de mover cualquier archivo de la carpeta de entrada. Si el guardado falla, el archivo se queda donde estaba (probado).
+- **Sin solapamientos**: el flujo `motor-datos-resolver` no permite dos ejecuciones a la vez.
+- **Límite**: el estado completo va en una sola fila. El plan gratuito de Supabase tiene 500 MB de base de datos; cuando el estado se acerque a ese límite hará falta pasar a tablas (pendiente).
+- **Carga manual**: la carpeta `engine/inbox/` es local. En GitHub Actions está vacía, así que la carga manual de archivos solo funciona ejecutando el motor en su propio equipo. La carga normal de grupos ya existe en RESOLVER (importación de administrador).
+- Opciones alternativas: `node engine/cli.js watch --every 60` en un equipo propio, o `node engine/cli.js run` desde un cron del sistema.
 
-**Importante:** el estado se guarda en un archivo. En un servicio con disco efímero (como el plan gratuito de Render) el archivo se pierde al reiniciar, y con él la memoria de qué ya se guardó. Antes de programar en producción hay que cambiar el almacén por una base persistente con la misma interfaz. Las opciones de programación de Render (trabajos cron o servicio de fondo) pueden requerir un plan de pago: **no está verificado en este entorno**; confirmarlo en su documentación antes de contratar. `deploy/github-actions.example.yml` es una plantilla **inactiva** que también exige estado persistente.
+## Copia de seguridad
+
+`scripts/respaldo.js` descarga el respaldo completo de RESOLVER con una cuenta de superadministrador y lo guarda en el bucket **privado** `respaldos` de Supabase. Cada copia tiene fecha y hora en el nombre y no sobrescribe ninguna anterior. Se ejecuta cada domingo con `.github/workflows/respaldo.yml`. Las copias no se borran automáticamente (regla del proyecto: nada se borra).
+
+Requiere una cuenta de superadministrador **dedicada** a la copia, cuya contraseña guarda el titular como secreto. Esa decisión es del titular: sin ella, la tarea falla con un aviso y la copia manual desde el panel sigue funcionando.
 
 ## Calidad, validación y registro
 
@@ -128,21 +140,25 @@ El motor no se ejecuta solo. Opciones, de la más simple a la más robusta:
 
 ## Lo que falta y mejoras propuestas
 
-Implementado: arquitectura, 6 componentes, 3 fuentes (1 activa, 2 documentadas), cuarentena, deduplicación, análisis, señales, sincronización con reintentos, programación manual o por proceso, registro de errores, pruebas.
+Hecho: arquitectura, seis componentes, tres fuentes (una activa, dos documentadas), cuarentena con marcado de revisión, deduplicación, análisis, señales, sincronización con reintentos, persistencia en Supabase, programación en GitHub Actions, copia de seguridad semanal y pruebas.
 
 Pendiente, en orden de importancia:
 
-1. **Almacén persistente** con la misma interfaz que `store.js` (por ejemplo, tablas en Supabase con migraciones). Sin esto, el motor no es confiable en producción.
-2. **Revisión de cuarentena**: hoy las filas quedan registradas, pero no hay comando ni pantalla para corregirlas y reprocesarlas. Falta también reprocesar cuando cambian las reglas.
-3. **Versión de reglas**: guardar la versión del clasificador y de las reglas de geografía en cada registro, para re-clasificar con trazabilidad.
-4. **Riesgo de falso positivo en la deduplicación cruzada**: dos vendedores distintos que publican exactamente el mismo texto, precio, provincia y día se unen en un registro. Mitigación propuesta: incluir el identificador de la fuente o el enlace en la huella cuando exista, y revisar los casos unidos.
-5. **Alertas**: aviso por correo cuando una fuente falla varias veces seguidas (reutilizando el envío de correo de RESOLVER).
-6. **Cobertura**: indicador por fuente, grupo, provincia y semana, para saber dónde hay datos y dónde no.
-7. **Retención y minimización** de contactos y de filas originales (ver Privacidad).
-8. **Reintento de destino en lote**: hoy RESOLVER detalla solo los primeros 100 errores de una carga; lo no detallado se reintenta (es seguro, porque RESOLVER ignora los duplicados).
+1. **Reprocesar la cuarentena** cuando se corrigen las reglas. Hoy solo se puede marcar como revisada, no corregir y volver a procesar.
+2. **Estado en tablas** en lugar de una sola fila JSON, para no chocar con el límite de 500 MB del plan gratuito.
+3. **Versión de reglas** en cada registro, para re-clasificar con trazabilidad.
+4. **Riesgo de falso positivo en la deduplicación cruzada**: dos vendedores distintos que publican exactamente el mismo texto, precio, provincia y día se unen. Propuesta: usar el enlace o el identificador de la fuente en la huella cuando exista.
+5. **Alertas** por correo cuando una fuente falla varias veces seguidas (reutilizando el envío de correo de RESOLVER).
+6. **Cobertura** por fuente, grupo, provincia y semana.
+7. **Retención y minimización** de contactos y filas originales (ver Privacidad). Las copias de seguridad también crecen sin límite.
+8. **Carga manual desde el teléfono**: hoy el motor solo lee archivos de su propio equipo o de un feed autorizado.
 9. **Señales**: son observaciones con evidencia, no hechos confirmados; la interfaz debe decirlo así.
 
 ## Estado honesto
 
-- Probado: pruebas automáticas del motor y de su conexión con RESOLVER con respuestas simuladas; ejecución de punta a punta con un archivo de muestra.
-- No probado: conexión real con RESOLVER desde el motor (requiere una cuenta de moderador del motor y `RESOLVER_URL`); fuentes externas (ninguna conectada); ejecución programada en Render.
+- **Probado con pruebas automáticas (151 unitarias y de API, 67 de navegador)**: el motor completo, la persistencia con Supabase simulada, la cuarentena, la copia de seguridad con respuestas simuladas y el selector de país en navegador.
+- **Creado en Supabase (proyecto `resolver-produccion`)**: tabla `public.engine_state` con RLS activo y sin políticas; buckets `resolver-fotos` (público, para fotos) y `respaldos` (privado).
+- **No probado contra servicios reales desde este entorno**: el shell no tiene acceso de red a Supabase, a GitHub Actions ni a Render. Falta una ejecución real de las tareas programadas y una subida real de foto.
+- **Pendiente del titular**: los secretos de GitHub (`ENGINE_SUPABASE_URL`, `ENGINE_SUPABASE_KEY`, y los de RESOLVER y de la copia) y la cuenta de moderador del motor.
+- **Ninguna fuente externa está conectada**: sin acuerdo o API oficial no hay datos de terceros.
+

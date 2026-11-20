@@ -104,6 +104,7 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
       check(`${tag}: orden por precio de menor a mayor`, firstPrice.includes('920'), `primero=${firstPrice}`);
       check(`${tag}: estadísticas de precio y evolución visibles`, (await page.locator('#results .stat').count()) >= 3 && (await page.locator('#results .chart').count()) >= 1);
       check(`${tag}: la publicación enlaza a la fuente`, (await page.locator('#results a[href*="/posts/"]').count()) >= 3);
+      check(`${tag}: selector de país muestra Cuba`, (await page.inputValue('#country')) === 'Cuba');
       check(`${tag}: muestra el vendedor (o que no viene en la fuente)`, (await page.locator('#results .seller').count()) === 3);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       check(`${tag}: sin desplazamiento horizontal`, overflow <= 0, `desbordamiento=${overflow}px`);

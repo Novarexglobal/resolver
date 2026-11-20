@@ -43,10 +43,24 @@ export function parseGroupMap(text) {
  * - Revolico: no conectada (documentada, sin intentos de conexión).
  * - Destino RESOLVER: solo con RESOLVER_URL; exige usuario y contraseña de moderador del motor.
  */
-export function buildFromEnv(env = process.env, { fetchImpl = globalThis.fetch, now, sleep } = {}) {
+/**
+ * Persistencia: con ENGINE_SUPABASE_URL y ENGINE_SUPABASE_KEY el estado va a Supabase (public.engine_state);
+ * sin ellas, a un archivo local. Dar solo una de las dos es un error de configuración.
+ */
+export function storeOptionsFromEnv(env = process.env, { fetchImpl } = {}) {
+  const url = env.ENGINE_SUPABASE_URL || '';
+  const key = env.ENGINE_SUPABASE_KEY || '';
+  if (url || key) {
+    if (!url || !key) throw new EngineError('Para guardar en Supabase hacen falta ENGINE_SUPABASE_URL y ENGINE_SUPABASE_KEY.', 'config');
+    return { remote: { url, key, fetchImpl } };
+  }
+  return { file: defaultPaths(env).state };
+}
+
+export async function buildFromEnv(env = process.env, { fetchImpl = globalThis.fetch, now, sleep } = {}) {
   const paths = defaultPaths(env);
   const groupMap = parseGroupMap(env.ENGINE_GROUP_MAP);
-  const store = new EngineStore({ file: paths.state });
+  const store = await EngineStore.open(storeOptionsFromEnv(env, { fetchImpl }));
   const adapters = [
     createManualInbox({ dir: paths.inbox, processedDir: paths.processed }),
     createHttpFeed({
@@ -69,5 +83,5 @@ export function buildFromEnv(env = process.env, { fetchImpl = globalThis.fetch, 
     })
     : null;
   const engine = createEngine({ adapters, store, sink, now, sleep });
-  return { engine, store, paths, sinkConfigured: Boolean(sink) };
+  return { engine, store, paths, sinkConfigured: Boolean(sink), persistence: store.mode };
 }

@@ -161,17 +161,18 @@ test('sincronizador: un error del destino deja los registros pendientes sin marc
   assert.equal(store.list('records')[0].sync_state, 'pendiente');
 });
 
-test('montaje desde entorno: la configuración incompleta falla con mensaje claro', () => {
+test('montaje desde entorno: la configuración incompleta falla con mensaje claro', async () => {
   assert.throws(() => parseGroupMap('no json'), EngineError);
   assert.throws(() => parseGroupMap('[1,2]'), EngineError);
   assert.deepEqual(parseGroupMap('{"manual":"g1"}'), { manual: 'g1' });
   const dir = mkdtempSync(join(tmpdir(), 'motor-env-'));
   try {
     const env = { ENGINE_STATE_FILE: join(dir, 's.json'), ENGINE_INBOX_DIR: join(dir, 'in'), ENGINE_PROCESSED_DIR: join(dir, 'ok') };
-    const built = buildFromEnv(env);
+    const built = await buildFromEnv(env);
     assert.equal(built.sinkConfigured, false);
+    assert.equal(built.persistence, 'archivo');
     assert.deepEqual(built.engine.sources().map((s) => s.status), ['activa', 'no conectada', 'no conectada']);
-    assert.throws(() => buildFromEnv({ ...env, RESOLVER_URL: 'https://r.example' }), EngineError);
+    await assert.rejects(buildFromEnv({ ...env, RESOLVER_URL: 'https://r.example' }), EngineError);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

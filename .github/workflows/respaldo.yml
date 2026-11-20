@@ -1,0 +1,45 @@
+# Copia de seguridad semanal de RESOLVER en el bucket privado «respaldos» de Supabase (plan gratuito).
+# Secretos necesarios: RESOLVER_URL, RESOLVER_RESPALDO_USER, RESOLVER_RESPALDO_PASSWORD (cuenta de superadministrador
+# dedicada a esto), SUPABASE_URL, SUPABASE_SERVICE_KEY. Sin ellos la tarea falla con un aviso claro.
+name: Copia de seguridad de RESOLVER
+
+on:
+  schedule:
+    - cron: '30 3 * * 0'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: respaldo-resolver
+  cancel-in-progress: false
+
+jobs:
+  respaldo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RESOLVER_URL: ${{ secrets.RESOLVER_URL }}
+      RESOLVER_RESPALDO_USER: ${{ secrets.RESOLVER_RESPALDO_USER }}
+      RESOLVER_RESPALDO_PASSWORD: ${{ secrets.RESOLVER_RESPALDO_PASSWORD }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Comprobar secretos
+        run: |
+          missing=""
+          for name in RESOLVER_URL RESOLVER_RESPALDO_USER RESOLVER_RESPALDO_PASSWORD SUPABASE_URL SUPABASE_SERVICE_KEY; do
+            eval "value=\${$name}"
+            if [ -z "$value" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Faltan secretos para la copia de seguridad:$missing"
+            exit 1
+          fi
+      - name: Copia de seguridad
+        run: node scripts/respaldo.js

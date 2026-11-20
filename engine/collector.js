@@ -51,6 +51,8 @@ export async function collect(adapter, { store, now = () => new Date(), batchSiz
       }
     });
 
+    // Lo recibido se guarda en el almacén antes de confirmar la fuente (y de mover archivos).
+    await store.flush();
     if (typeof adapter.ack === 'function') await adapter.ack(page);
     const next = page.nextCursor ?? null;
     store.setCursor(adapter.key, next);

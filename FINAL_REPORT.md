@@ -55,19 +55,22 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 - **Análisis por categoría**: se filtra por categoría, pero no hay una vista de análisis separada por rama.
 - **Clasificación**: palabras clave con sugerencias marcadas; no hay clasificador automático entrenado.
 - **Cuentas**: el correo solo envía recuperaciones si se configura el servicio de correo (Resend). Sin él, la solicitud queda registrada para el administrador, que puede restablecer la contraseña. No hay verificación de correo.
-- **Capa de país**: el backend está completo, pero la app todavía no tiene selector de país; hoy todo se muestra como Cuba.
-- **Fotos**: la subida está probada contra un servidor simulado de Supabase Storage. Falta probarla con el bucket real.
+- **Capa de país**: backend completo y selector de país en búsqueda y exploración. Solo existe Cuba, así que el selector muestra una sola opción.
+- **Fotos**: la subida está probada contra un servidor simulado de Supabase Storage. El bucket `resolver-fotos` ya existe en el proyecto `resolver-produccion` (público), pero no se ha probado una subida real desde este entorno, que no tiene acceso de red a Supabase.
 
 **No construido**
 
-- **Esquema relacional con migraciones versionadas**: los datos se guardan como filas JSON en `resolver_records`. Simplifica la operación, pero no cumple el diseño por tablas que plantea la especificación.
-- **Nexo Data Engine** (`engine/`, independiente de `src/`): arquitectura de seis componentes, cuarentena, deduplicación entre fuentes, análisis, señales, sincronización con reintentos, CLI y pruebas. Estado actual:
-  - Fuentes: solo la carga manual de archivos está activa. El feed autorizado se activa con URL y token de un proveedor; Revolico no está conectada.
-  - El estado del motor se guarda en un archivo local: hace falta un almacén persistente antes de programarlo en producción.
-  - No está verificada la conexión real del motor con RESOLVER ni la ejecución programada en Render (puede requerir plan de pago; no verificado).
-  - Detalle, decisiones y lista de mejoras en `engine/README.md`.
+- **Esquema relacional con migraciones versionadas**: los datos se guardan como filas JSON en `resolver_records`. Pasar a tablas exige migrar datos de producción y reescribir el almacén; no se hizo en esta etapa para no arriesgar los 8 registros actuales. El motor sí usa una tabla propia (`engine_state`) creada con migración.
+- **Nexo Data Engine** (`engine/`, independiente de `src/`): arquitectura de seis componentes, cuarentena con marcado de revisión, deduplicación, análisis, señales, sincronización con reintentos, CLI y pruebas. Estado actual:
+  - Persistencia en Supabase (`public.engine_state`) con guardado antes de mover archivos.
+  - Programación con GitHub Actions (gratis en repositorio público), cada 6 horas. Render no se usa para esto (plan gratuito sin tareas programadas).
+  - Fuentes: solo la carga manual de archivos está activa, y solo en el equipo que ejecuta el motor. El feed autorizado se activa con URL y token de un proveedor; Revolico no está conectada.
+  - Pendiente del titular: secretos de GitHub y cuenta de moderador del motor. Sin ellos las tareas fallan con un aviso.
+  - Sin prueba real contra servicios externos desde este entorno.
+  - Detalle y lista de mejoras en `engine/README.md`.
+- **Copia de seguridad automática**: `scripts/respaldo.js` con tarea semanal en GitHub Actions al bucket privado `respaldos`. Requiere una cuenta de superadministrador dedicada, decidida por el titular.
 - **Monetización**: los planes están definidos en `src/catalog.js` como `PLANS`, sin activar ni bloquear funciones, como pide la especificación.
-- **Copias de seguridad automáticas**: la descarga manual existe; la programada depende del plan de Supabase y de tareas periódicas, que el plan gratuito de Render no ejecuta.
+- **Copias de seguridad automáticas**: implementadas en GitHub Actions (ver arriba). La descarga manual desde el panel sigue disponible.
 
 **Decisiones pendientes del titular**
 
@@ -84,7 +87,8 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 | Facebook | Manual por diseño | Ninguna. No se extrae nada automáticamente, por sus condiciones de uso |
 | Revolico | No conectada: no hay permiso verificado para acceso automatizado | Carga manual o un acuerdo de datos |
 | Render (hosting) | Servicio `resolver-hinojova` | `SUPABASE_SERVICE_KEY`, `RESOLVER_ADMIN_USER`, `RESOLVER_ADMIN_PASSWORD` |
-| GitHub (código) | Rama `resolver-v2` en `Novarexglobal/resolver` | Ninguna adicional |
+| GitHub (código) | Rama `resolver-v2` en `Novarexglobal/resolver` (público) | Secretos de Actions: `ENGINE_SUPABASE_URL`, `ENGINE_SUPABASE_KEY`, `RESOLVER_URL`, `RESOLVER_ENGINE_USER`, `RESOLVER_ENGINE_PASSWORD`, y para la copia `RESOLVER_RESPALDO_USER`, `RESOLVER_RESPALDO_PASSWORD`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` |
+| Supabase, proyecto `resolver-produccion` | Activo; tabla `engine_state` y buckets `resolver-fotos` y `respaldos` creados | Plan gratuito: 500 MB de base de datos y 1 GB de almacenamiento. El otro proyecto (`resolver-prodution`) está pausado y no se usa |
 
 ## 5. Pruebas ejecutadas
 

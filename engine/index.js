@@ -174,9 +174,11 @@ export function createEngine({
         finish(run, status, err.message, counts);
         results.push({ source: key, status, message: err.message });
       }
+      await store.flush();
     }
     const analysis = refreshAnalysis();
     const sync = await synchronize({ store, sink, batchSize: syncBatchSize, now: now() });
+    await store.flush();
     return { results, analysis, sync };
   }
 

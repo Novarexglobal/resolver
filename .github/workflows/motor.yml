@@ -1,0 +1,46 @@
+# Motor de datos de RESOLVER: ejecución programada (GitHub Actions, gratis en repositorio público).
+# Sin secretos configurados, la tarea falla con un aviso claro: el motor no corre sin guardar su estado.
+# Secretos necesarios: ENGINE_SUPABASE_URL, ENGINE_SUPABASE_KEY (clave de servicio de Supabase).
+# Opcionales: ENGINE_GROUP_MAP, RESOLVER_URL, RESOLVER_ENGINE_USER, RESOLVER_ENGINE_PASSWORD, FEED_URL, FEED_TOKEN.
+name: Motor de datos RESOLVER
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: motor-datos-resolver
+  cancel-in-progress: false
+
+jobs:
+  motor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ENGINE_SUPABASE_URL: ${{ secrets.ENGINE_SUPABASE_URL }}
+      ENGINE_SUPABASE_KEY: ${{ secrets.ENGINE_SUPABASE_KEY }}
+      ENGINE_GROUP_MAP: ${{ secrets.ENGINE_GROUP_MAP }}
+      RESOLVER_URL: ${{ secrets.RESOLVER_URL }}
+      RESOLVER_ENGINE_USER: ${{ secrets.RESOLVER_ENGINE_USER }}
+      RESOLVER_ENGINE_PASSWORD: ${{ secrets.RESOLVER_ENGINE_PASSWORD }}
+      FEED_URL: ${{ secrets.FEED_URL }}
+      FEED_TOKEN: ${{ secrets.FEED_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Comprobar persistencia
+        run: |
+          if [ -z "$ENGINE_SUPABASE_URL" ] || [ -z "$ENGINE_SUPABASE_KEY" ]; then
+            echo "::error::Falta ENGINE_SUPABASE_URL o ENGINE_SUPABASE_KEY. Sin Supabase el motor no guarda su estado y no se ejecuta."
+            exit 1
+          fi
+      - name: Configuración
+        run: node engine/cli.js check
+      - name: Ejecutar fuentes y sincronizar
+        run: node engine/cli.js run

@@ -190,6 +190,8 @@ async function enterApp() {
 async function loadConfig() {
   state.config = await api('/api/config');
   const { maxPeriodDays, announcement } = state.config;
+  fillCountries($('country'));
+  fillCountries($('ex-country'));
   fillProvinces($('province'));
   fillProvinces($('ex-province'));
   fillCategories($('category'));
@@ -200,6 +202,13 @@ async function loadConfig() {
   const today = todayHavana();
   $('end').max = today;
   $('end').value = today;
+}
+
+// Países disponibles según el servidor; hoy solo Cuba. Si no hay lista, el selector queda con el país por defecto.
+function fillCountries(select, selected = '') {
+  const list = state.config.countries?.length ? state.config.countries : [{ name: state.config.default_country || 'Cuba' }];
+  select.replaceChildren(...list.map((c) => el('option', { value: c.name, text: c.name })));
+  select.value = selected || state.config.default_country || list[0].name;
 }
 
 function fillProvinces(select, selected = '') {
@@ -335,6 +344,7 @@ function collectFilters() {
     brand: $('brand').value.trim(),
     model: $('model').value.trim(),
     sort: $('sort').value,
+    country: $('country').value,
     province: $('province').value,
     municipality: $('municipality').value,
     category: $('category').value,
@@ -691,7 +701,7 @@ async function loadExplore() {
     $('explore-results').replaceChildren(el('div', { class: 'alert warn', text: 'Elige una provincia para ver sus municipios.' }));
     return;
   }
-  const params = new URLSearchParams({ kind, days: $('ex-days').value });
+  const params = new URLSearchParams({ kind, days: $('ex-days').value, country: $('ex-country').value });
   if (province) params.set('province', province);
   if (category) params.set('category', category);
   $('explore-results').replaceChildren(el('div', { class: 'skeleton' }));
@@ -1136,6 +1146,7 @@ async function repeatSearch(s) {
   $('brand').value = s.filters.brand || '';
   $('model').value = s.filters.model || '';
   $('sort').value = s.filters.sort || 'fecha_desc';
+  $('country').value = s.filters.country || state.config.default_country || 'Cuba';
   $('province').value = s.filters.province || '';
   await loadMunicipalities(s.filters.province, s.filters.municipality);
   $('category').value = s.filters.category || '';
