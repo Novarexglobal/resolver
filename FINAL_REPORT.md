@@ -61,7 +61,11 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 **No construido**
 
 - **Esquema relacional con migraciones versionadas**: los datos se guardan como filas JSON en `resolver_records`. Simplifica la operación, pero no cumple el diseño por tablas que plantea la especificación.
-- **Nexo Data Engine** (sección 5): existen validación, deduplicación, clasificación, detección de señales y sincronización. No hay adaptadores de fuentes ni actualizaciones programadas: el plan gratuito de Render no ejecuta tareas periódicas.
+- **Nexo Data Engine** (`engine/`, independiente de `src/`): arquitectura de seis componentes, cuarentena, deduplicación entre fuentes, análisis, señales, sincronización con reintentos, CLI y pruebas. Estado actual:
+  - Fuentes: solo la carga manual de archivos está activa. El feed autorizado se activa con URL y token de un proveedor; Revolico no está conectada.
+  - El estado del motor se guarda en un archivo local: hace falta un almacén persistente antes de programarlo en producción.
+  - No está verificada la conexión real del motor con RESOLVER ni la ejecución programada en Render (puede requerir plan de pago; no verificado).
+  - Detalle, decisiones y lista de mejoras en `engine/README.md`.
 - **Monetización**: los planes están definidos en `src/catalog.js` como `PLANS`, sin activar ni bloquear funciones, como pide la especificación.
 - **Copias de seguridad automáticas**: la descarga manual existe; la programada depende del plan de Supabase y de tareas periódicas, que el plan gratuito de Render no ejecuta.
 
@@ -84,7 +88,9 @@ Este informe es honesto: indica lo que funciona y se ha probado, lo que está pa
 
 ## 5. Pruebas ejecutadas
 
-- **95 pruebas automáticas** (`npm test`):
+- **137 pruebas automáticas** (`npm test`): 95 de RESOLVER y 42 del motor (`tests/engine/`). El motor se prueba con respuestas simuladas; no hay pruebas contra servicios externos reales.
+- **65 pruebas de navegador** (`npm run test:e2e`, iPhone 13 y Pixel 7), todas correctas.
+- Pruebas de RESOLVER:
   - Lógica de período, deduplicación, filtros, análisis, señales, comparación entre períodos, clasificador, validación, CSV y formato por líneas, contraseñas, enlaces de Facebook.
   - API completa: permisos por rol, grupos, cargas, historial, exportación, perfil, sesiones, recuperación de contraseña (con enlace caducado y reutilizado), guardados, exploración, señales, categorías, fuentes, configuración, reportes y ausencia de borrado.
   - Correo con respuesta de error y servicio caído.
