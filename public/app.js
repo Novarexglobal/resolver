@@ -1,3 +1,5 @@
+import { loadVisual } from './visual.js';
+
 const $ = (id) => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
 const state = { config: null, user: null, info: null, search: null, explored: false };
@@ -87,21 +89,6 @@ function applyTheme(theme) {
   else root.removeAttribute('data-mode');
 }
 
-// Paleta de acento: la elige cada persona con los cuatro puntos de la barra superior
-const PALETTES = ['ion', 'brasa', 'musgo', 'hielo'];
-const PALETTE_KEY = 'resolver.palette';
-function applyPalette(name) {
-  const palette = PALETTES.includes(name) ? name : 'ion';
-  document.documentElement.setAttribute('data-palette', palette);
-  document.querySelectorAll('.palettes [data-p]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.p === palette)));
-  try { localStorage.setItem(PALETTE_KEY, palette); } catch { /* sin almacenamiento: la paleta vale solo en esta sesión */ }
-}
-function initPalettes() {
-  let saved = 'ion';
-  try { saved = localStorage.getItem(PALETTE_KEY) || 'ion'; } catch { /* ver arriba */ }
-  applyPalette(saved);
-  document.querySelectorAll('.palettes [data-p]').forEach((b) => b.addEventListener('click', () => applyPalette(b.dataset.p)));
-}
 
 // ---------- acceso: entrar, crear cuenta, recuperar y definir contraseña ----------
 function setAuthMode(mode) {
@@ -1356,8 +1343,9 @@ $('report-form').addEventListener('submit', async (e) => {
 });
 
 // ---------- arranque ----------
-initPalettes();
 (async function boot() {
+  // Estilo y logo elegidos por el superadministrador para todas las personas
+  loadVisual();
   resetToken = new URLSearchParams(location.search).get('reset') || '';
   handleVerifyLink();
   try {

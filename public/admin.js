@@ -1,3 +1,6 @@
+import { loadVisual, applyVisual, DEFAULT_VISUAL } from './visual.js';
+import { LOGOS, STYLES, logoMarkup } from './brand.js';
+
 const $ = (id) => document.getElementById(id);
 const state = { config: null, user: null, focusGroupId: '' };
 // Moderador: contenido. Superadministrador: además usuarios, estadísticas, errores y configuración.
@@ -883,8 +886,54 @@ async function renderErrors() {
 }
 
 // ---------- configuración (superadministrador) ----------
+// Estilo y logo globales: al tocar una opción se ve la vista previa en este panel; se aplica a todas las personas al guardar
+function visualCard(pick) {
+  const styleGrid = el('div', { class: 'choice-grid', role: 'group', 'aria-label': 'Estilo visual' });
+  const logoGrid = el('div', { class: 'choice-grid', role: 'group', 'aria-label': 'Logo principal' });
+  const paint = () => {
+    styleGrid.replaceChildren(...STYLES.map((s) => el(
+      'button',
+      {
+        type: 'button',
+        class: 'choice',
+        'aria-pressed': String(pick.style === s.id),
+        onclick: () => { pick.style = s.id; applyVisual({ ...pick }); paint(); },
+      },
+      el('span', { class: 'choice-name', text: s.name }),
+      el('span', { class: 'choice-desc', text: s.desc }),
+      el('span', { class: 'swatches' }, el('i', { style: `background:${s.tint}` }), el('i', { style: `background:${s.accent}` })),
+    )));
+    logoGrid.replaceChildren(...LOGOS.map((l) => {
+      const mark = el('span', { class: 'logo-mark' });
+      mark.innerHTML = logoMarkup(l.id);
+      return el(
+        'button',
+        {
+          type: 'button',
+          class: 'choice logo',
+          'aria-pressed': String(pick.logo === l.id),
+          'aria-label': `Logo ${l.name}`,
+          onclick: () => { pick.logo = l.id; applyVisual({ ...pick }); paint(); },
+        },
+        mark,
+        el('span', { class: 'choice-name', text: l.name }),
+      );
+    }));
+  };
+  paint();
+  return card(
+    'Estilo visual y logo',
+    el('p', { class: 'muted', text: 'Lo que elijas aquí es el mismo para todas las personas al guardar. Al tocar una opción cambia la vista previa de este panel; guarda para aplicarlo a la app.' }),
+    el('h3', { text: 'Estilo' }),
+    styleGrid,
+    el('h3', { text: 'Logo principal' }),
+    logoGrid,
+  );
+}
+
 async function renderSettings() {
   const { settings } = await api('/api/admin/settings');
+  const pick = { ...DEFAULT_VISUAL, ...(state.config?.visual || {}) };
   const announcement = el('textarea', { id: 'set-announcement', maxlength: 300, text: settings.announcement || '' });
   const days = el(
     'select',
@@ -896,7 +945,7 @@ async function renderSettings() {
     text: 'Guardar configuración',
     onclick: async () => {
       try {
-        await api('/api/admin/settings', { method: 'PATCH', body: { announcement: announcement.value.trim(), default_days: Number(days.value) } });
+        await api('/api/admin/settings', { method: 'PATCH', body: { announcement: announcement.value.trim(), default_days: Number(days.value), visual_style: pick.style, visual_logo: pick.logo } });
         state.config = await api('/api/config');
         toast('Configuración guardada.');
       } catch (err) {
@@ -905,6 +954,7 @@ async function renderSettings() {
     },
   });
   $('panel').replaceChildren(
+    visualCard(pick),
     card(
       'Configuración',
       el('label', { text: 'Aviso para todos los usuarios (vacío = sin aviso)' }),
@@ -942,6 +992,7 @@ async function renderReports() {
 
 // ---------- arranque ----------
 (async function boot() {
+  loadVisual();
   try {
     const { user } = await api('/api/me');
     if (!user || !CONTENT_ROLES.includes(user.role)) return showLogin();

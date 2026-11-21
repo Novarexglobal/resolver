@@ -1,9 +1,11 @@
 /* RESOLVER · «cabina de mercado»
-   Fondo de grafito con rejilla casi invisible, filos finos, cifras alineadas y un acento que brilla.
-   Dos ejes independientes: la PALETA (color de acento: ion, brasa, musgo, hielo) y el MODO (oscuro o claro).
-   Escala de espaciado: 4 · 8 · 12 · 16 · 24 · 32 px. Un solo movimiento de cambio de módulo y la entrada de resultados. */
+   Grafito con rejilla casi invisible, filos finos y cifras alineadas.
+   Tres capas: MODO (oscuro o claro, lo elige cada persona en Cuenta),
+   ESTILO (acento, tinte, forma y tipografía, lo elige el superadministrador y aplica a todos)
+   y LOGO (el dibujo de la marca, también elegido por el superadministrador).
+   Escala de espaciado: 4 · 8 · 12 · 16 · 24 · 32 px. */
 
-/* ---------- escala ---------- */
+/* ---------- base: escala, superficies y modo oscuro (por defecto) ---------- */
 :root {
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --radius: 6px;
@@ -11,18 +13,20 @@
   --sans: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   --display: ui-sans-serif, system-ui, -apple-system, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --accent: #3ee8ff;
-}
 
-/* ---------- modo: superficies y texto ---------- */
-:root, :root[data-mode="dark"] {
-  --paper: #070b11;
-  --panel: #0c141d;
-  --raise: #111d2a;
+  /* Fondos del modo: base, panel y campo. El tinte del estilo se mezcla encima */
+  --base: #070b11;
+  --base-2: #0c141d;
+  --base-3: #111d2a;
+  --tint: #3ee8ff;
+  --accent: #3ee8ff;
+  --paper: color-mix(in srgb, var(--base) 94%, var(--tint));
+  --panel: color-mix(in srgb, var(--base-2) 92%, var(--tint));
+  --raise: color-mix(in srgb, var(--base-3) 92%, var(--tint));
   --ink: #e6f1ff;
   --ink-2: #7b8ca6;
-  --rule: #17263a;
-  --grid: rgba(190, 220, 255, 0.035);
+  --rule: color-mix(in srgb, var(--ink) 12%, var(--paper));
+  --grid: color-mix(in srgb, var(--ink) 4%, transparent);
   --rise: #ff5c7a;
   --fall: #3dffb4;
   --warn: #ffc857;
@@ -35,15 +39,15 @@
   --glass: color-mix(in srgb, var(--paper) 82%, transparent);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
+
+/* ---------- modo claro ---------- */
 @media (prefers-color-scheme: light) {
   :root:not([data-mode="dark"]) {
-    --paper: #f3f6fa;
-    --panel: #ffffff;
-    --raise: #f7f9fc;
+    --base: #f3f6fa;
+    --base-2: #ffffff;
+    --base-3: #f7f9fc;
     --ink: #0b1624;
     --ink-2: #5b6b82;
-    --rule: #d9e2ee;
-    --grid: rgba(11, 22, 36, 0.045);
     --rise: #c8283f;
     --fall: #0f8a57;
     --warn: #8a5a00;
@@ -57,13 +61,11 @@
   }
 }
 :root[data-mode="light"] {
-  --paper: #f3f6fa;
-  --panel: #ffffff;
-  --raise: #f7f9fc;
+  --base: #f3f6fa;
+  --base-2: #ffffff;
+  --base-3: #f7f9fc;
   --ink: #0b1624;
   --ink-2: #5b6b82;
-  --rule: #d9e2ee;
-  --grid: rgba(11, 22, 36, 0.045);
   --rise: #c8283f;
   --fall: #0f8a57;
   --warn: #8a5a00;
@@ -76,11 +78,16 @@
   --shadow: 0 12px 40px rgba(11, 22, 36, 0.12);
 }
 
-/* ---------- paleta: color de acento ---------- */
-:root[data-palette="ion"]   { --accent: #3ee8ff; }
-:root[data-palette="brasa"] { --accent: #ff7a3d; }
-:root[data-palette="musgo"] { --accent: #7fe3a1; }
-:root[data-palette="hielo"] { --accent: #6d8dff; }
+/* ---------- estilos visuales (uno activo para todas las personas) ---------- */
+:root[data-style="brasa"]      { --tint: #ff7a3d; --accent: #ff7a3d; }
+:root[data-style="musgo"]      { --tint: #7fe3a1; --accent: #7fe3a1; }
+:root[data-style="hielo"]      { --tint: #6d8dff; --accent: #6d8dff; }
+:root[data-style="papel"]      { --tint: #c9a46a; --accent: #e0a458; --display: ui-serif, Georgia, "Times New Roman", serif; --radius: 2px; --radius-lg: 4px; --grid: transparent; }
+:root[data-style="arena"]      { --tint: #e8b98a; --accent: #ef8a5c; --display: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; --radius: 16px; --radius-lg: 22px; }
+:root[data-style="neon"]       { --tint: #7b2cff; --accent: #ff4fd8; --radius: 4px; --radius-lg: 8px; }
+:root[data-style="medianoche"] { --tint: #1f3a8a; --accent: #f2c14e; --radius: 8px; --radius-lg: 12px; }
+:root[data-style="bosque"]     { --tint: #1f5a3d; --accent: #b8f25c; }
+:root[data-style="tinta"]      { --tint: #9aa3ad; --accent: #ffd23f; --radius: 0px; --radius-lg: 0px; --grid: transparent; }
 
 * { box-sizing: border-box; }
 html { -webkit-tap-highlight-color: transparent; }
@@ -120,22 +127,9 @@ img { max-width: 100%; display: block; }
 .brand { font-family: var(--display); font-weight: 700; letter-spacing: 0.02em; color: var(--ink); }
 .brand small { display: block; font-family: var(--sans); font-weight: 400; color: var(--ink-2); letter-spacing: 0; font-size: 0.75rem; margin-top: 1px; }
 .brand-row { display: flex; align-items: center; gap: var(--s2); }
-.brand-mark { width: 26px; height: 26px; color: var(--ink); flex-shrink: 0; overflow: visible; }
-.brand-mark .node { fill: var(--accent); }
+.brand-mark { width: 26px; height: 26px; color: var(--ink); flex-shrink: 0; display: block; }
 .brand-word { display: block; font-family: var(--display); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.3em; line-height: 1.1; }
-
-/* Selector de paleta: cuatro puntos con el color de cada acento */
-.palettes { display: inline-flex; align-items: center; gap: var(--s2); margin-right: var(--s1); }
-.palettes button {
-  width: 16px; height: 16px; min-width: 16px; padding: 0; border-radius: 50%; border: 0;
-  background: var(--sw); box-shadow: 0 0 0 1px var(--rule); transition: transform 180ms var(--ease), box-shadow 180ms var(--ease);
-}
-.palettes button:hover { filter: none; transform: scale(1.12); }
-.palettes button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
-.palettes [data-p="ion"]   { --sw: #3ee8ff; }
-.palettes [data-p="brasa"] { --sw: #ff7a3d; }
-.palettes [data-p="musgo"] { --sw: #7fe3a1; }
-.palettes [data-p="hielo"] { --sw: #6d8dff; }
+.brand-mark svg, .hero-mark svg { width: 100%; height: 100%; display: block; overflow: visible; }
 
 main { max-width: 1040px; margin: 0 auto; padding: var(--s4) var(--s4) 104px; }
 
@@ -271,21 +265,17 @@ button.small { width: auto; padding: 6px 10px; font-size: 0.85rem; }
   content: ""; position: absolute; left: calc(var(--s4) * -1); right: calc(var(--s4) * -1); top: calc(var(--s4) * -1); height: 200px; pointer-events: none;
   background: radial-gradient(70% 90% at 10% 0%, var(--accent-soft), transparent 70%);
 }
-.hero-mark { position: relative; width: 84px; height: 84px; color: var(--ink); display: block; margin: 0 0 var(--s4); overflow: visible; }
-.hero-mark .node { fill: var(--accent); filter: drop-shadow(0 0 6px var(--accent)); }
+.hero-mark { position: relative; width: 84px; height: 84px; color: var(--ink); display: block; margin: 0 0 var(--s4); }
+.hero-mark .node { filter: drop-shadow(0 0 6px var(--accent)); }
 .hero-word {
   position: relative; font-family: var(--display); font-weight: 700; font-size: 1.85rem; letter-spacing: 0.3em;
   line-height: 1; margin: 0 -0.3em 0 0; color: var(--ink);
 }
 .hero-tag { position: relative; margin: var(--s3) 0 0; color: var(--ink-2); font-size: 0.95rem; }
 
-/* Trazos de la marca: se dibujan una vez al cargar, en secuencia (hexágono, R, nodo) */
+/* Trazos de la marca: se dibujan una vez al cargar, en secuencia; el retraso de cada trazo va en línea */
 .draw { fill: none; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-in 0.7s var(--ease) forwards; }
-.draw.hex { animation-duration: 0.9s; }
-.draw.d1 { animation-delay: 0.25s; }
-.draw.d2 { animation-delay: 0.6s; }
-.draw.d3 { animation-delay: 0.9s; }
-.dot-end { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: dot-in 0.45s 1.25s var(--ease) forwards; }
+.dot-end { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: dot-in 0.45s var(--ease) forwards; }
 @keyframes draw-in { to { stroke-dashoffset: 0; } }
 @keyframes dot-in { to { transform: scale(1); } }
 
@@ -335,6 +325,24 @@ th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--rule
 th { color: var(--ink-2); font-weight: 600; font-size: 0.8rem; }
 td { font-variant-numeric: tabular-nums; }
 .table-wrap { overflow-x: auto; }
+
+/* Elección de estilo y logo (superadministrador) */
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s2); margin: var(--s3) 0 var(--s4); }
+.choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: var(--s3);
+  text-align: left; background: var(--raise); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius);
+  font-weight: 500; box-shadow: none; transform: none;
+}
+.choice:hover { filter: none; background: var(--raise); border-color: var(--accent-line); }
+.choice[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.choice .choice-name { font-weight: 650; font-size: 0.95rem; }
+.choice .choice-desc { font-size: 0.8rem; color: var(--ink-2); font-weight: 400; line-height: 1.35; }
+.choice .swatches { display: flex; gap: 6px; margin-top: 2px; }
+.choice .swatches i { width: 16px; height: 16px; border-radius: 50%; display: block; box-shadow: 0 0 0 1px var(--rule); }
+.choice.logo { align-items: center; justify-content: center; min-height: 128px; }
+.choice.logo svg { width: 76px; height: 76px; color: var(--ink); display: block; overflow: visible; }
+.choice.logo .choice-name { font-size: 0.8rem; color: var(--ink-2); font-weight: 600; margin-top: 6px; }
+.choice.logo .choice-name { margin-top: 6px; }
 
 /* ---------- escritorio ---------- */
 @media (min-width: 900px) {
