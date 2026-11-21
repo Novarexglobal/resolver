@@ -331,3 +331,30 @@ select[aria-label] { max-width: 100%; }
 ::view-transition-new(root) { animation: 240ms var(--ease-out) both vt-in; }
 @keyframes vt-out { to { opacity: 0; } }
 @keyframes vt-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* Portada: marca grande con trazo que se dibuja una vez al cargar (el punto ámbar aparece al final) */
+.hero { padding: 14px 0 30px; }
+.hero-mark { width: 150px; height: 150px; color: var(--teal); display: block; margin: 0 0 18px -12px; overflow: visible; }
+.hero-word { font-family: var(--serif); font-size: clamp(3.2rem, 16vw, 4.8rem); font-weight: 600; letter-spacing: 0.02em; line-height: 0.95; margin: 0 0 12px; color: var(--ink); }
+.hero-tag { margin: 0; color: var(--ink-2); font-size: 1.05rem; }
+.draw { fill: none; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-in 0.8s var(--ease-out) forwards; }
+.draw.d1 { animation-delay: 0.1s; }
+.draw.d2 { animation-delay: 0.5s; }
+.draw.d3 { animation-delay: 0.9s; }
+.dot-end { fill: #e3b653; transform-box: fill-box; transform-origin: center; transform: scale(0); animation: dot-in 0.45s 1.55s var(--ease-out) forwards; }
+@keyframes draw-in { to { stroke-dashoffset: 0; } }
+@keyframes dot-in { to { transform: scale(1); } }
+
+/* Tarjeta de acceso: filo teal superior, la misma firma que los diálogos */
+#auth .card { border-top: 4px solid var(--teal); }
+
+/* Marca en la barra superior */
+.brand-row { display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 32px; height: 32px; color: var(--teal); flex-shrink: 0; overflow: visible; }
+.brand-word { display: block; font-family: var(--serif); font-weight: 600; font-size: 1.2rem; line-height: 1.1; }
+
+/* Movimiento reducido: la marca aparece completa de inmediato */
+@media (prefers-reduced-motion: reduce) {
+  .draw { stroke-dashoffset: 0; }
+  .dot-end { transform: none; }
+}

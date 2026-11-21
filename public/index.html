@@ -19,7 +19,18 @@
   <section id="auth" class="hidden">
     <div class="auth-wrap">
       <div class="card">
-        <div class="brand" style="margin-bottom:12px">RESOLVER<small>Lo encuentras. Compras. Resuelves.</small></div>
+        <header class="hero">
+          <svg class="hero-mark" viewBox="0 0 512 512" role="img" aria-label="Marca de RESOLVER">
+            <g transform="translate(-14 -6)" fill="none" stroke-width="44">
+              <path class="draw d1" pathLength="1" d="M176 106V384" stroke="currentColor"/>
+              <path class="draw d2" pathLength="1" d="M176 128H262A66 66 0 0 1 262 260H176" stroke="currentColor"/>
+              <path class="draw d3" pathLength="1" d="M262 260L352 384" stroke="currentColor"/>
+              <circle class="dot-end" cx="352" cy="384" r="34"/>
+            </g>
+          </svg>
+          <h1 class="hero-word">RESOLVER</h1>
+          <p class="hero-tag">Lo encuentras. Compras. Resuelves.</p>
+        </header>
         <div class="auth-tabs" id="auth-tabs">
           <button type="button" class="secondary active" data-auth="login">Entrar</button>
           <button type="button" class="secondary" data-auth="register">Crear cuenta</button>
@@ -55,7 +66,7 @@
   <!-- Aplicación -->
   <div id="app" class="hidden">
     <header class="topbar">
-      <div class="brand">RESOLVER<small>Lo encuentras. Compras. Resuelves.</small></div>
+      <div class="brand brand-row"><svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true"><g transform="translate(-14 -6)" fill="none" stroke="currentColor" stroke-width="44"><path d="M176 106V384"/><path d="M176 128H262A66 66 0 0 1 262 260H176"/><path d="M262 260L352 384"/><circle cx="352" cy="384" r="34" fill="#e3b653" stroke="none"/></g></svg><div><span class="brand-word">RESOLVER</span><small>Lo encuentras. Compras. Resuelves.</small></div></div>
       <div class="row">
         <span class="muted" id="who"></span>
         <a id="admin-link" href="/admin" class="hidden">Administración</a>
