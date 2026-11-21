@@ -303,7 +303,16 @@ document.addEventListener('click', (e) => {
 const SECTIONS = ['inicio', 'buscar', 'explorar', 'historial', 'grupos', 'reportes', 'sobre', 'cuenta'];
 const TAB_OF = { inicio: 'inicio', buscar: 'buscar', explorar: 'explorar', historial: 'historial', cuenta: 'cuenta', grupos: 'mas', reportes: 'mas', sobre: 'mas' };
 
+// Cambio de vista con transición nativa cuando el navegador la soporta y la persona no pidió movimiento reducido
 function setView(name) {
+  if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.startViewTransition(() => showView(name));
+  } else {
+    showView(name);
+  }
+}
+
+function showView(name) {
   const target = name === 'mas' ? 'grupos' : name;
   if (!SECTIONS.includes(target)) return;
   const tab = TAB_OF[target];
@@ -511,7 +520,13 @@ function updateCount(data) {
 }
 
 function appendResults(data) {
-  $('posts-list').append(...data.results.map(postCard));
+  const cards = data.results.map(postCard);
+  // Entrada escalonada solo para las primeras filas de cada tanda
+  cards.forEach((card, i) => {
+    card.classList.add('enter');
+    card.style.setProperty('--i', String(Math.min(i, 8)));
+  });
+  $('posts-list').append(...cards);
   updateCount(data);
 }
 
