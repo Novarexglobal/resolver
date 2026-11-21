@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>RESOLVER · Inteligencia de mercado</title>
   <meta name="description" content="RESOLVER: oferta observable de grupos de Facebook, por provincia y municipio. HINOJOVA Tech.">
-  <meta name="theme-color" content="#0b6b63">
+  <meta name="theme-color" content="#070b11">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="RESOLVER">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <script src="/palette.js"></script>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -21,12 +22,13 @@
       <div class="card">
         <header class="hero">
           <svg class="hero-mark" viewBox="0 0 512 512" role="img" aria-label="Marca de RESOLVER">
-            <g transform="translate(-14 -6)" fill="none" stroke-width="44">
-              <path class="draw d1" pathLength="1" d="M176 106V384" stroke="currentColor"/>
-              <path class="draw d2" pathLength="1" d="M176 128H262A66 66 0 0 1 262 260H176" stroke="currentColor"/>
-              <path class="draw d3" pathLength="1" d="M262 260L352 384" stroke="currentColor"/>
-              <circle class="dot-end" cx="352" cy="384" r="34"/>
+            <g fill="none" stroke="currentColor">
+              <path class="draw hex" pathLength="1" d="M256 36L446.5 146V366L256 476L65.5 366V146Z" stroke-width="22"/>
+              <path class="draw d1" pathLength="1" d="M190 132V352" stroke-width="36"/>
+              <path class="draw d2" pathLength="1" d="M190 150H270L316 200L270 250H190" stroke-width="36"/>
+              <path class="draw d3" pathLength="1" d="M270 250L330 362" stroke-width="36"/>
             </g>
+            <circle class="node dot-end" cx="330" cy="362" r="20"/>
           </svg>
           <h1 class="hero-word">RESOLVER</h1>
           <p class="hero-tag">Lo encuentras. Compras. Resuelves.</p>
@@ -66,8 +68,14 @@
   <!-- Aplicación -->
   <div id="app" class="hidden">
     <header class="topbar">
-      <div class="brand brand-row"><svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true"><g transform="translate(-14 -6)" fill="none" stroke="currentColor" stroke-width="44"><path d="M176 106V384"/><path d="M176 128H262A66 66 0 0 1 262 260H176"/><path d="M262 260L352 384"/><circle cx="352" cy="384" r="34" fill="#e3b653" stroke="none"/></g></svg><div><span class="brand-word">RESOLVER</span><small>Lo encuentras. Compras. Resuelves.</small></div></div>
+      <div class="brand brand-row"><svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true"><g fill="none" stroke="currentColor"><path d="M256 36L446.5 146V366L256 476L65.5 366V146Z" stroke-width="22"/><path d="M190 132V352M190 150H270L316 200L270 250H190" stroke-width="36"/><path d="M270 250L330 362" stroke-width="36"/></g><circle class="node" cx="330" cy="362" r="20"/></svg><div><span class="brand-word">RESOLVER</span><small>Lo encuentras. Compras. Resuelves.</small></div></div>
       <div class="row">
+        <div class="palettes" role="group" aria-label="Color de acento">
+          <button type="button" data-p="ion" aria-label="Paleta ion" title="Ion"></button>
+          <button type="button" data-p="brasa" aria-label="Paleta brasa" title="Brasa"></button>
+          <button type="button" data-p="musgo" aria-label="Paleta musgo" title="Musgo"></button>
+          <button type="button" data-p="hielo" aria-label="Paleta hielo" title="Hielo"></button>
+        </div>
         <span class="muted" id="who"></span>
         <a id="admin-link" href="/admin" class="hidden">Administración</a>
         <button type="button" class="secondary small" id="logout">Salir</button>

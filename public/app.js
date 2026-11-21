@@ -79,12 +79,28 @@ async function api(path, { method = 'GET', body } = {}) {
 }
 
 // ---------- tema ----------
-// Automático sigue al sistema; claro y oscuro se fuerzan con data-theme
+// Automático sigue al sistema; claro y oscuro se fuerzan con data-mode
 function applyTheme(theme) {
   const root = document.documentElement;
-  if (theme === 'oscuro') root.setAttribute('data-theme', 'dark');
-  else if (theme === 'claro') root.setAttribute('data-theme', 'light');
-  else root.removeAttribute('data-theme');
+  if (theme === 'oscuro') root.setAttribute('data-mode', 'dark');
+  else if (theme === 'claro') root.setAttribute('data-mode', 'light');
+  else root.removeAttribute('data-mode');
+}
+
+// Paleta de acento: la elige cada persona con los cuatro puntos de la barra superior
+const PALETTES = ['ion', 'brasa', 'musgo', 'hielo'];
+const PALETTE_KEY = 'resolver.palette';
+function applyPalette(name) {
+  const palette = PALETTES.includes(name) ? name : 'ion';
+  document.documentElement.setAttribute('data-palette', palette);
+  document.querySelectorAll('.palettes [data-p]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.p === palette)));
+  try { localStorage.setItem(PALETTE_KEY, palette); } catch { /* sin almacenamiento: la paleta vale solo en esta sesión */ }
+}
+function initPalettes() {
+  let saved = 'ion';
+  try { saved = localStorage.getItem(PALETTE_KEY) || 'ion'; } catch { /* ver arriba */ }
+  applyPalette(saved);
+  document.querySelectorAll('.palettes [data-p]').forEach((b) => b.addEventListener('click', () => applyPalette(b.dataset.p)));
 }
 
 // ---------- acceso: entrar, crear cuenta, recuperar y definir contraseña ----------
@@ -303,13 +319,9 @@ document.addEventListener('click', (e) => {
 const SECTIONS = ['inicio', 'buscar', 'explorar', 'historial', 'grupos', 'reportes', 'sobre', 'cuenta'];
 const TAB_OF = { inicio: 'inicio', buscar: 'buscar', explorar: 'explorar', historial: 'historial', cuenta: 'cuenta', grupos: 'mas', reportes: 'mas', sobre: 'mas' };
 
-// Cambio de vista con transición nativa cuando el navegador la soporta y la persona no pidió movimiento reducido
+// Cambio de vista: la sección entrante se desliza y aparece en 280 ms (CSS .view-in; se desactiva con movimiento reducido)
 function setView(name) {
-  if (document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.startViewTransition(() => showView(name));
-  } else {
-    showView(name);
-  }
+  showView(name);
 }
 
 function showView(name) {
@@ -317,6 +329,10 @@ function showView(name) {
   if (!SECTIONS.includes(target)) return;
   const tab = TAB_OF[target];
   for (const v of SECTIONS) $(`view-${v}`).classList.toggle('hidden', v !== target);
+  const entering = $(`view-${target}`);
+  entering.classList.remove('view-in');
+  void entering.offsetWidth; // reinicia la animación aunque se vuelva a la misma vista
+  entering.classList.add('view-in');
   document.querySelectorAll('.tabbar [data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === tab));
   $('mas-bar').classList.toggle('hidden', tab !== 'mas');
   document.querySelectorAll('#mas-bar [data-go]').forEach((b) => b.classList.toggle('active', b.dataset.go === target));
@@ -1340,6 +1356,7 @@ $('report-form').addEventListener('submit', async (e) => {
 });
 
 // ---------- arranque ----------
+initPalettes();
 (async function boot() {
   resetToken = new URLSearchParams(location.search).get('reset') || '';
   handleVerifyLink();

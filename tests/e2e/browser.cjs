@@ -161,7 +161,7 @@ const check = (name, ok, extra = '') => { results.push({ name, ok }); console.lo
       await page.waitForFunction(() => document.querySelector('#acc-user').textContent.includes('vendedor_1'));
       await page.selectOption('#pf-theme', 'oscuro');
       await page.click('#profile-form button[type="submit"]');
-      await page.waitForFunction(() => document.documentElement.getAttribute('data-theme') === 'dark');
+      await page.waitForFunction(() => document.documentElement.getAttribute('data-mode') === 'dark');
       check(`${tag}: cuenta cambia el tema`, true);
       check(`${tag}: la sesión actual figura en la lista`, (await page.textContent('#sessions-list')).includes('Esta sesión'));
 
