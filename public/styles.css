@@ -1,4 +1,4 @@
-/* RESOLVER · diez estilos visuales con la misma estructura.
+/* RESOLVER · quince estilos visuales con la misma estructura.
    Tres capas independientes:
    - MODO: oscuro o claro, lo elige cada persona en Cuenta.
    - ESTILO: forma, tipografía, fondo, tarjetas, barra, transición. Lo elige el superadministrador.
@@ -131,13 +131,13 @@
   --shadow: 0 12px 40px rgba(11, 22, 36, 0.12);
 }
 
-/* ---------- los diez estilos ---------- */
+/* ---------- los quince estilos ---------- */
 
-/* Cabina: panel técnico. Filos finos, rejilla y el cambio de módulo se barre de izquierda a derecha */
+/* Cabina: panel técnico. Filos finos; de fondo, sellos y cabinas telefónicas; el cambio se barre de izquierda a derecha */
 :root[data-style="cabina"] {
   --pattern: url(/patterns/cabina.svg);
-  --pattern-alpha: 0.3;
-  --pattern-size: 96px;
+  --pattern-alpha: 0.22;
+  --pattern-size: 240px;
   --view-dur: 420ms;
   --view-ease: cubic-bezier(0.6, 0, 0.2, 1);
   --from-o: 1;
@@ -148,8 +148,8 @@
 /* Brasa: bloque audaz. Bordes gruesos, sombra dura, rayas de fondo y cambio a golpe */
 :root[data-style="brasa"] {
   --pattern: url(/patterns/brasa.svg);
-  --pattern-alpha: 0.5;
-  --pattern-size: 120px;
+  --pattern-alpha: 0.35;
+  --pattern-size: 200px;
   --radius: 0px;
   --radius-lg: 0px;
   --bw: 2px;
@@ -181,8 +181,8 @@
 /* Musgo: suave y orgánico. Esquinas muy redondas, barra flotante, cambio con rebote */
 :root[data-style="musgo"] {
   --pattern: url(/patterns/musgo.svg);
-  --pattern-alpha: 0.4;
-  --pattern-size: 140px;
+  --pattern-alpha: 0.3;
+  --pattern-size: 220px;
   --radius: 24px;
   --radius-lg: 30px;
   --bw: 0px;
@@ -219,8 +219,8 @@
 /* Hielo: vidrio esmerilado. Tarjetas translúcidas, fondo difuminado, cambio con desenfoque */
 :root[data-style="hielo"] {
   --pattern: url(/patterns/hielo.svg);
-  --pattern-alpha: 0.45;
-  --pattern-size: 150px;
+  --pattern-alpha: 0.35;
+  --pattern-size: 240px;
   --radius: 18px;
   --radius-lg: 22px;
   --card-edge: color-mix(in srgb, var(--ink) 18%, transparent);
@@ -254,8 +254,8 @@
 /* Papel: editorial impreso. Serif en todo, sin tarjetas, reglas finas, la página gira al cambiar */
 :root[data-style="papel"] {
   --pattern: url(/patterns/papel.svg);
-  --pattern-alpha: 0.6;
-  --pattern-size: 110px;
+  --pattern-alpha: 0.4;
+  --pattern-size: 120px;
   --sans: ui-serif, Georgia, "Times New Roman", serif;
   --display: ui-serif, Georgia, "Times New Roman", serif;
   --h-weight: 700;
@@ -293,8 +293,8 @@
 /* Arena: juguetón y cercano. Tarjetas muy redondas, sombra de color, cambio con salto */
 :root[data-style="arena"] {
   --pattern: url(/patterns/arena.svg);
-  --pattern-alpha: 0.6;
-  --pattern-size: 130px;
+  --pattern-alpha: 0.45;
+  --pattern-size: 160px;
   --radius: 22px;
   --radius-lg: 28px;
   --bw: 0px;
@@ -331,8 +331,8 @@
 /* Neón: tablero de neón. Bordes que brillan, horizonte de rejilla, cambio con parpadeo */
 :root[data-style="neon"] {
   --pattern: url(/patterns/neon.svg);
-  --pattern-alpha: 0.5;
-  --pattern-size: 160px;
+  --pattern-alpha: 0.4;
+  --pattern-size: 240px;
   --radius: 3px;
   --radius-lg: 6px;
   --bw: 1px;
@@ -398,8 +398,8 @@
 /* Bosque: calmo y ordenado. Puntos de fondo, filo de color a la izquierda, cambio que baja */
 :root[data-style="bosque"] {
   --pattern: url(/patterns/bosque.svg);
-  --pattern-alpha: 0.35;
-  --pattern-size: 150px;
+  --pattern-alpha: 0.3;
+  --pattern-size: 240px;
   --radius: 10px;
   --radius-lg: 12px;
   --bw: 1px;
@@ -462,6 +462,205 @@
   --from-o: 0;
   --from-x: 0px;
   --draw-dur: 0.4s;
+}
+
+/* Confort: general y cómodo. Superficies rellenas sin filo, aire entre bloques, cambio con fundido corto.
+   Barra sin bordes: la pestaña activa es un punto debajo del texto */
+:root[data-style="confort"] {
+  --pattern: url(/patterns/confort.svg);
+  --pattern-alpha: 0.2;
+  --pattern-size: 24px;
+  --radius: 14px;
+  --radius-lg: 18px;
+  --bw: 0px;
+  --card-edge: transparent;
+  --card-shadow: none;
+  --card-pad: var(--s5);
+  --input-edge: var(--rule);
+  --btn-radius: 12px;
+  --btn-shadow: 0 6px 14px -8px var(--accent);
+  --h-weight: 600;
+  --h-track: -0.01em;
+  --hero-size: 2rem;
+  --hero-weight: 600;
+  --hero-track: -0.01em;
+  --bg-image: none;
+  --tint-mix: 8%;
+  --tab-edge: transparent;
+  --tab-shadow: 0 -10px 28px -20px rgba(0, 0, 0, 0.5);
+  --view-dur: 320ms;
+  --view-ease: ease-out;
+  --from-o: 0;
+  --from-x: 0px;
+  --from-y: 8px;
+}
+
+/* Terminal: consola. Todo en monoespaciada, sin radios, el título lleva el prompt y la marca un cursor que parpadea.
+   El cambio de módulo se revela de arriba abajo, como un volcado de texto */
+:root[data-style="terminal"] {
+  --pattern: url(/patterns/terminal.svg);
+  --pattern-alpha: 0.16;
+  --pattern-size: 200px;
+  --sans: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --display: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 0px;
+  --radius-lg: 0px;
+  --bw: 1px;
+  --card-edge: var(--accent-line);
+  --card-bg: var(--paper);
+  --card-shadow: none;
+  --card-pad: var(--s4);
+  --input-edge: var(--accent-line);
+  --btn-radius: 0px;
+  --btn-bg: var(--accent-soft);
+  --btn-fg: var(--accent-text);
+  --btn-shadow: none;
+  --btn-hover: brightness(1.2);
+  --h-weight: 700;
+  --h-track: 0em;
+  --hero-align: left;
+  --hero-size: 1.5rem;
+  --hero-weight: 700;
+  --hero-track: 0em;
+  --bg-image: none;
+  --tint-mix: 0%;
+  --topbar-bg: var(--paper);
+  --tab-bg: var(--paper);
+  --tab-radius: 0px;
+  --tab-edge: var(--accent-line);
+  --tab-shadow: none;
+  --view-dur: 360ms;
+  --view-ease: steps(8, end);
+  --from-o: 1;
+  --from-x: 0px;
+  --from-clip: inset(0 0 100% 0);
+  --draw-dur: 0.5s;
+}
+
+/* Lienzo: galería clara. Letra fina y grande, tarjetas con sombra suave, botones en tinta; el acento va en los detalles.
+   Se desliza de lado, como pasar una lámina */
+:root[data-style="lienzo"] {
+  --pattern: url(/patterns/lienzo.svg);
+  --pattern-alpha: 0.3;
+  --pattern-size: 160px;
+  --radius: 4px;
+  --radius-lg: 6px;
+  --bw: 1px;
+  --card-edge: transparent;
+  --card-bg: var(--panel);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 14px 32px -20px rgba(0, 0, 0, 0.4);
+  --card-pad: var(--s5);
+  --input-edge: var(--rule);
+  --btn-radius: 4px;
+  --btn-bg: var(--ink);
+  --btn-fg: var(--paper);
+  --btn-shadow: none;
+  --btn-hover: brightness(1.25);
+  --h-weight: 300;
+  --h-track: -0.03em;
+  --hero-align: left;
+  --hero-size: 2.6rem;
+  --hero-weight: 300;
+  --hero-track: -0.04em;
+  --bg-image: none;
+  --tint-mix: 3%;
+  --topbar-bg: var(--paper);
+  --tab-bg: var(--paper);
+  --tab-radius: 0px;
+  --tab-edge: var(--rule);
+  --tab-shadow: none;
+  --view-dur: 440ms;
+  --view-ease: cubic-bezier(0.3, 0.7, 0.1, 1);
+  --from-o: 0;
+  --from-x: 48px;
+  --from-y: 0px;
+  --from-blur: 2px;
+}
+
+/* Órbita: espacial. Paneles de cristal oscuro, un halo girando alrededor de la marca, barra de lado a lado con brillo arriba.
+   El cambio gira en perspectiva y se asienta como un satélite */
+:root[data-style="orbita"] {
+  --pattern: url(/patterns/orbita.svg);
+  --pattern-alpha: 0.28;
+  --pattern-size: 320px;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 16px;
+  --radius-lg: 20px;
+  --bw: 1px;
+  --card-edge: color-mix(in srgb, var(--accent) 22%, transparent);
+  --card-bg: color-mix(in srgb, var(--base-2) 55%, transparent);
+  --card-blur: blur(16px) saturate(140%);
+  --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 50px -30px #000;
+  --card-pad: var(--s5);
+  --input-edge: var(--accent-line);
+  --btn-radius: 999px;
+  --btn-shadow: 0 0 22px -6px var(--accent);
+  --h-weight: 300;
+  --h-track: 0.02em;
+  --hero-align: center;
+  --hero-mx: auto;
+  --hero-size: 1.9rem;
+  --hero-weight: 300;
+  --hero-track: 0.3em;
+  --bg-image: radial-gradient(60% 40% at 50% 100%, var(--accent-soft), transparent 70%);
+  --bg-size: auto;
+  --tint-mix: 10%;
+  --topbar-bg: color-mix(in srgb, var(--base) 60%, transparent);
+  --tab-bg: color-mix(in srgb, var(--base-2) 60%, transparent);
+  --tab-radius: 0px;
+  --tab-margin: 0;
+  --tab-edge: var(--accent-line);
+  --tab-shadow: 0 -10px 30px -12px var(--accent);
+  --view-dur: 620ms;
+  --view-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --from-o: 0;
+  --from-x: 0px;
+  --from-y: 0px;
+  --from-s: 0.7;
+  --from-r: 35deg;
+  --from-blur: 6px;
+  --draw-dur: 1.1s;
+}
+
+/* Pixel: retro digital. Bordes cuadrados con borde inferior en bloque, botones biselados, la revelación crece en escalones */
+:root[data-style="pixel"] {
+  --pattern: url(/patterns/pixel.svg);
+  --pattern-alpha: 0.28;
+  --pattern-size: 48px;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 0px;
+  --radius-lg: 0px;
+  --bw: 2px;
+  --card-edge: var(--accent-line);
+  --card-shadow: inset 0 -4px 0 var(--accent-soft);
+  --card-pad: var(--s4);
+  --input-edge: var(--accent-line);
+  --btn-radius: 0px;
+  --btn-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.35), inset 3px 3px 0 rgba(255, 255, 255, 0.25);
+  --btn-hover: brightness(1.1);
+  --btn-press: translate(2px, 2px);
+  --h-weight: 800;
+  --h-track: 0.02em;
+  --h-shadow: 2px 2px 0 var(--accent-soft);
+  --hero-align: left;
+  --hero-size: 2.1rem;
+  --hero-weight: 900;
+  --hero-track: 0.12em;
+  --bg-image: none;
+  --tint-mix: 6%;
+  --topbar-bg: var(--paper);
+  --tab-bg: var(--paper);
+  --tab-radius: 0px;
+  --tab-edge: var(--accent-line);
+  --tab-shadow: none;
+  --view-dur: 400ms;
+  --view-ease: steps(6, end);
+  --from-o: 1;
+  --from-x: 0px;
+  --from-clip: inset(0 50% 50% 0);
+  --draw-dur: 0.6s;
 }
 
 /* ---------- base de componentes (leen las variables) ---------- */
@@ -833,6 +1032,84 @@ select[aria-label] { max-width: 100%; }
 :root[data-style="tinta"] .post .price { font-family: var(--mono); }
 :root[data-style="tinta"] .tabbar button.active { text-decoration: underline; text-underline-offset: 6px; }
 :root[data-style="tinta"] .tabbar button.active::before { display: none; }
+
+/* Confort: la pestaña activa es un punto bajo el texto */
+:root[data-style="confort"] .tabbar button.active { color: var(--ink); }
+:root[data-style="confort"] .tabbar button::before { top: auto; bottom: 3px; left: 50%; right: auto; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; transform: scale(0); }
+:root[data-style="confort"] .tabbar button.active::before { transform: scale(1); }
+
+/* Terminal: el título lleva el prompt y la marca un cursor que parpadea; los encabezados de sección llevan $ */
+@keyframes blink { 50% { opacity: 0; } }
+:root[data-style="terminal"] .hero-word::before { content: "> "; color: var(--accent-text); }
+:root[data-style="terminal"] .hero-word::after { content: "_"; color: var(--accent-text); animation: blink 1s steps(1, end) infinite; }
+:root[data-style="terminal"] h2::before { content: "$ "; color: var(--accent-text); }
+:root[data-style="terminal"] .tabbar button.active { color: var(--accent-text); }
+:root[data-style="terminal"] .tabbar button.active::before { box-shadow: none; }
+
+/* Lienzo: la pestaña activa se marca con un filo fino de tinta a lo ancho */
+:root[data-style="lienzo"] .tabbar button.active { color: var(--ink); }
+:root[data-style="lienzo"] .tabbar button.active::before { left: 0; right: 0; height: 1px; box-shadow: none; background: var(--ink); }
+:root[data-style="lienzo"] .stat .value { font-weight: 300; }
+
+/* Órbita: un halo punteado gira alrededor de la marca */
+@keyframes spin { to { transform: rotate(360deg); } }
+:root[data-style="orbita"] .hero-mark::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; border: 1px dashed var(--accent-line); animation: spin 24s linear infinite; }
+:root[data-style="orbita"] .tabbar button.active { color: var(--ink); text-shadow: 0 0 10px var(--accent); }
+:root[data-style="orbita"] .stat .value { font-weight: 300; }
+
+/* Pixel: la pestaña activa es un bloque grueso de color arriba */
+:root[data-style="pixel"] .tabbar button.active { background: var(--accent-soft); }
+:root[data-style="pixel"] .tabbar button.active::before { height: 6px; box-shadow: none; }
+
+/* ---------- posición de la barra (la elige el superadministrador) ---------- */
+
+/* Abajo: barra fija al pie de la pantalla, en todos los tamaños */
+:root[data-bar="abajo"] .tabbar {
+  position: fixed; top: auto; bottom: 0; left: 0; right: 0;
+  grid-template-columns: repeat(6, 1fr); justify-content: stretch;
+  margin: var(--tab-margin);
+  padding: var(--s1) var(--s1) calc(var(--s1) + env(safe-area-inset-bottom));
+  background: var(--tab-bg); border: var(--bw) solid var(--tab-edge); border-radius: var(--tab-radius); box-shadow: var(--tab-shadow);
+}
+:root[data-bar="abajo"] main { padding-bottom: 104px; }
+
+/* Arriba: la barra queda pegada bajo la cabecera y sigue al desplazarse */
+:root[data-bar="arriba"] .topbar { position: static; }
+:root[data-bar="arriba"] .tabbar {
+  position: sticky; top: 0; bottom: auto; z-index: 9;
+  grid-template-columns: repeat(6, 1fr); justify-content: stretch;
+  margin: 0 0 var(--s4); padding: var(--s1) 0;
+  background: var(--tab-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 0; border-bottom: var(--bw) solid var(--tab-edge); border-radius: var(--tab-radius); box-shadow: var(--tab-shadow);
+}
+:root[data-bar="arriba"] .tabbar button::before { top: auto; bottom: 0; }
+@media (min-width: 900px) {
+  :root[data-bar="arriba"] .tabbar { grid-template-columns: repeat(6, auto); justify-content: start; padding: 0; }
+}
+
+/* Izquierda y derecha: columna fija al costado; el contenido se corre para no quedar debajo */
+:root[data-bar="izquierda"], :root[data-bar="derecha"] { --bar-w: 88px; }
+:root[data-bar="izquierda"] .topbar { margin-left: var(--bar-w); }
+:root[data-bar="izquierda"] main { padding-left: calc(var(--bar-w) + var(--s4)); }
+:root[data-bar="derecha"] .topbar { margin-right: var(--bar-w); }
+:root[data-bar="derecha"] main { padding-right: calc(var(--bar-w) + var(--s4)); }
+:root[data-bar="izquierda"] .tabbar,
+:root[data-bar="derecha"] .tabbar {
+  position: fixed; top: 0; bottom: 0; width: var(--bar-w); z-index: 10;
+  grid-template-columns: 1fr; grid-auto-rows: max-content; align-content: start; gap: var(--s1);
+  margin: 0; padding: var(--s4) var(--s2);
+  background: var(--tab-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 0; border-radius: 0; box-shadow: var(--tab-shadow);
+}
+:root[data-bar="izquierda"] .tabbar { left: 0; right: auto; border-right: var(--bw) solid var(--tab-edge); }
+:root[data-bar="derecha"] .tabbar { left: auto; right: 0; border-left: var(--bw) solid var(--tab-edge); }
+:root[data-bar="izquierda"] .tabbar button,
+:root[data-bar="derecha"] .tabbar button { padding: 12px 4px; font-size: 0.72rem; }
+:root[data-bar="izquierda"] .tabbar button::before,
+:root[data-bar="derecha"] .tabbar button::before { top: 22%; bottom: 22%; left: 0; right: auto; width: 2px; height: auto; transform: scaleY(0); }
+:root[data-bar="derecha"] .tabbar button::before { left: auto; right: 0; }
+:root[data-bar="izquierda"] .tabbar button.active::before,
+:root[data-bar="derecha"] .tabbar button.active::before { transform: scaleY(1); }
 
 /* ---------- movimiento reducido ---------- */
 @media (prefers-reduced-motion: reduce) {

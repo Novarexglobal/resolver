@@ -8,16 +8,23 @@ import { Store } from '../src/store.js';
 import { createApp } from '../src/server.js';
 import { ROLES, hashPassword } from '../src/auth.js';
 import { config } from '../src/config.js';
-import { STYLE_IDS, LOGO_IDS, DEFAULT_VISUAL, normalizeVisual } from '../src/visual.js';
-import { ACCENT_COLORS, LOGOS, STYLES, logoMarkup } from '../public/brand.js';
+import { STYLE_IDS, LOGO_IDS, BAR_IDS, DEFAULT_VISUAL, normalizeVisual } from '../src/visual.js';
+import { ACCENT_COLORS, BAR_CHOICES, LOGOS, STYLES, logoMarkup } from '../public/brand.js';
 import { onAccentFor } from '../public/visual.js';
 
 // El servidor y el navegador deben conocer exactamente los mismos estilos y logos
 test('los identificadores de estilo y logo coinciden entre servidor y navegador', () => {
   assert.deepEqual(STYLES.map((s) => s.id), STYLE_IDS);
   assert.deepEqual(LOGOS.map((l) => l.id), LOGO_IDS);
-  assert.equal(STYLE_IDS.length, 10);
-  assert.equal(LOGO_IDS.length, 12);
+  assert.deepEqual(BAR_CHOICES.map((b) => b.id), BAR_IDS);
+  assert.equal(STYLE_IDS.length, 15);
+  assert.equal(LOGO_IDS.length, 15);
+  assert.equal(BAR_IDS.length, 4);
+});
+
+// Los tres logos de siempre (hexágono, anillo y gota) se mantienen; los demás son nuevos
+test('el hexágono, el anillo y la gota siguen en el catálogo', () => {
+  for (const id of ['hexagono', 'anillo', 'gota']) assert.ok(LOGO_IDS.includes(id), id);
 });
 
 test('cada logo se dibuja como SVG, con y sin animación', () => {
@@ -25,9 +32,9 @@ test('cada logo se dibuja como SVG, con y sin animación', () => {
     const plain = logoMarkup(logo.id);
     const animated = logoMarkup(logo.id, { animated: true });
     assert.match(plain, /^<svg[^>]*viewBox="0 0 512 512"/, logo.id);
-    // Los logos con trazos los dibujan en secuencia; el que solo tiene puntos muestra su nodo al final
+    // Los logos con trazos los dibujan en secuencia; los que tienen nodo luminoso lo muestran al final
     if (logo.items.some((i) => i.p)) assert.match(animated, /class="draw"/, logo.id);
-    assert.match(animated, /dot-end/, logo.id);
+    if (logo.items.some((i) => i.f === 'accent')) assert.match(animated, /dot-end/, logo.id);
     assert.doesNotMatch(plain, /class="draw"/, logo.id);
   }
 });
@@ -38,8 +45,13 @@ test('un logo desconocido cae en el hexágono y no rompe la página', () => {
 
 test('normalizeVisual usa valores válidos o los de por defecto', () => {
   assert.deepEqual(normalizeVisual({}), DEFAULT_VISUAL);
-  assert.deepEqual(normalizeVisual({ visual_style: 'neon', visual_logo: 'radar', visual_accent: '#FF4FD8' }), { style: 'neon', logo: 'radar', accent: '#ff4fd8' });
-  assert.deepEqual(normalizeVisual({ visual_style: 'inventado', visual_logo: 'otro', visual_accent: 'rojo' }), DEFAULT_VISUAL);
+  assert.deepEqual(normalizeVisual({ visual_style: 'neon', visual_logo: 'mira', visual_accent: '#FF4FD8', visual_bar: 'derecha' }), { style: 'neon', logo: 'mira', accent: '#ff4fd8', bar: 'derecha' });
+  assert.deepEqual(normalizeVisual({ visual_style: 'inventado', visual_logo: 'otro', visual_accent: 'rojo', visual_bar: 'centro' }), DEFAULT_VISUAL);
+});
+
+test('la barra por defecto es abajo y cualquier posición válida se respeta', () => {
+  assert.equal(DEFAULT_VISUAL.bar, 'abajo');
+  for (const bar of BAR_IDS) assert.equal(normalizeVisual({ visual_bar: bar }).bar, bar);
 });
 
 test('el acento por defecto es un color hexadecimal válido y cada color de muestra lo es', () => {
@@ -105,12 +117,26 @@ test('solo el superadministrador cambia el estilo y el logo, y se aplican a todo
   const badLogo = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_logo: 'inventado' } });
   assert.equal(badLogo.status, 400);
 
-  const ok = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_style: 'neon', visual_logo: 'radar' } });
+  const ok = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_style: 'neon', visual_logo: 'mira' } });
   assert.equal(ok.status, 200);
 
   const publicView = await call('GET', '/api/config');
   assert.equal(publicView.json.visual.style, 'neon');
-  assert.equal(publicView.json.visual.logo, 'radar');
+  assert.equal(publicView.json.visual.logo, 'mira');
+});
+
+test('la posición de la barra solo acepta las cuatro opciones y la guarda para todos', async () => {
+  const bad = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_bar: 'centro' } });
+  assert.equal(bad.status, 400);
+  const denied = await call('PATCH', '/api/admin/settings', { cookie: userCookie, body: { visual_bar: 'arriba' } });
+  assert.equal(denied.status, 403);
+
+  for (const bar of BAR_IDS) {
+    const ok = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_bar: bar } });
+    assert.equal(ok.status, 200, bar);
+    const view = await call('GET', '/api/config');
+    assert.equal(view.json.visual.bar, bar);
+  }
 });
 
 test('el color de acento se valida y se guarda en minúsculas; cualquier estilo acepta cualquier color', async () => {
@@ -123,7 +149,7 @@ test('el color de acento se valida y se guarda en minúsculas; cualquier estilo 
     const ok = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_style: style, visual_accent: '#1F5A3D' } });
     assert.equal(ok.status, 200);
     const view = await call('GET', '/api/config');
-    assert.deepEqual(view.json.visual, { style, logo: 'radar', accent: '#1f5a3d' });
+    assert.deepEqual(view.json.visual, { style, logo: 'mira', accent: '#1f5a3d', bar: 'derecha' });
   }
   assert.ok(ACCENT_COLORS.includes('#1f5a3d'));
 });

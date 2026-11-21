@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><defs><path id="s" d="M0-1Q0 0 1 0Q0 0 0 1Q0 0-1 0Q0 0 0-1Z"/></defs><use href="#s" fill="#000" transform="translate(34 34) scale(7)"/><use href="#s" fill="#000" transform="translate(120 60) scale(5)"/><use href="#s" fill="#000" transform="translate(62 128) scale(6)"/><use href="#s" fill="#000" transform="translate(140 144) scale(4)"/><g fill="#000"><circle cx="90" cy="22" r="1"/><circle cx="12" cy="90" r="1"/><circle cx="150" cy="96" r="1.2"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+<g fill="none" stroke="#000">
+<circle cx="120" cy="120" r="30" stroke-width="1.6"/>
+<circle cx="120" cy="120" r="62" stroke-width="1.2"/>
+<circle cx="120" cy="120" r="96" stroke-width="0.9" stroke-dasharray="3 6"/>
+</g>
+<circle cx="120" cy="120" r="4" fill="#000"/>
+</svg>

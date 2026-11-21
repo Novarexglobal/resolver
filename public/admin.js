@@ -1,5 +1,5 @@
 import { loadVisual, applyVisual, DEFAULT_VISUAL } from './visual.js';
-import { ACCENT_COLORS, LOGOS, STYLES, logoMarkup } from './brand.js';
+import { ACCENT_COLORS, BAR_CHOICES, LOGOS, STYLES, logoMarkup } from './brand.js';
 
 const $ = (id) => document.getElementById(id);
 const state = { config: null, user: null, focusGroupId: '' };
@@ -890,6 +890,20 @@ async function renderErrors() {
 function visualCard(pick) {
   const styleGrid = el('div', { class: 'choice-grid', role: 'group', 'aria-label': 'Estilo visual' });
   const logoGrid = el('div', { class: 'choice-grid', role: 'group', 'aria-label': 'Logo principal' });
+  const barGrid = el('div', { class: 'choice-grid', role: 'group', 'aria-label': 'Posición de la barra' });
+  const paintBar = () => {
+    barGrid.replaceChildren(...BAR_CHOICES.map((b) => el(
+      'button',
+      {
+        type: 'button',
+        class: 'choice',
+        'aria-pressed': String(pick.bar === b.id),
+        onclick: () => { pick.bar = b.id; applyVisual({ ...pick }); paintBar(); },
+      },
+      el('span', { class: 'choice-name', text: b.name }),
+      el('span', { class: 'choice-desc', text: b.desc }),
+    )));
+  };
   const paint = () => {
     styleGrid.replaceChildren(...STYLES.map((s) => el(
       'button',
@@ -938,8 +952,9 @@ function visualCard(pick) {
   };
   paint();
   paintAccent();
+  paintBar();
   return card(
-    'Estilo visual, color y logo',
+    'Estilo visual, color, logo y barra',
     el('p', { class: 'muted', text: 'Lo que elijas aquí es el mismo para todas las personas al guardar. Cada estilo funciona con cualquier color. Al tocar una opción cambia la vista previa de este panel; guarda para aplicarlo a la app.' }),
     el('h3', { text: 'Estilo' }),
     styleGrid,
@@ -948,6 +963,8 @@ function visualCard(pick) {
     el('div', { class: 'accent-custom' }, accentPicker, el('span', { class: 'muted', text: 'Otro color' })),
     el('h3', { text: 'Logo principal' }),
     logoGrid,
+    el('h3', { text: 'Barra de herramientas' }),
+    barGrid,
   );
 }
 
@@ -965,7 +982,7 @@ async function renderSettings() {
     text: 'Guardar configuración',
     onclick: async () => {
       try {
-        await api('/api/admin/settings', { method: 'PATCH', body: { announcement: announcement.value.trim(), default_days: Number(days.value), visual_style: pick.style, visual_logo: pick.logo, visual_accent: pick.accent } });
+        await api('/api/admin/settings', { method: 'PATCH', body: { announcement: announcement.value.trim(), default_days: Number(days.value), visual_style: pick.style, visual_logo: pick.logo, visual_accent: pick.accent, visual_bar: pick.bar } });
         state.config = await api('/api/config');
         toast('Configuración guardada.');
       } catch (err) {
