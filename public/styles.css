@@ -63,6 +63,11 @@
   --from-clip: inset(-100% -100% -100% -100%);
   --draw-dur: 0.7s;
 
+  /* Dibujo de fondo de cada estilo: una máscara (public/patterns) pintada con el acento */
+  --pattern: none;
+  --pattern-alpha: 0;
+  --pattern-size: 120px;
+
   /* Superficies: el acento se mezcla en el fondo con --tint-mix */
   --base: #070b11;
   --base-2: #0c141d;
@@ -130,6 +135,9 @@
 
 /* Cabina: panel técnico. Filos finos, rejilla y el cambio de módulo se barre de izquierda a derecha */
 :root[data-style="cabina"] {
+  --pattern: url(/patterns/cabina.svg);
+  --pattern-alpha: 0.3;
+  --pattern-size: 96px;
   --view-dur: 420ms;
   --view-ease: cubic-bezier(0.6, 0, 0.2, 1);
   --from-o: 1;
@@ -139,6 +147,9 @@
 
 /* Brasa: bloque audaz. Bordes gruesos, sombra dura, rayas de fondo y cambio a golpe */
 :root[data-style="brasa"] {
+  --pattern: url(/patterns/brasa.svg);
+  --pattern-alpha: 0.5;
+  --pattern-size: 120px;
   --radius: 0px;
   --radius-lg: 0px;
   --bw: 2px;
@@ -155,8 +166,7 @@
   --hero-size: 2.3rem;
   --hero-weight: 900;
   --hero-track: -0.02em;
-  --bg-image: repeating-linear-gradient(135deg, var(--grid) 0 2px, transparent 2px 16px);
-  --bg-size: auto;
+  --bg-image: none;
   --tint-mix: 10%;
   --topbar-bg: var(--paper);
   --tab-bg: var(--paper);
@@ -170,6 +180,9 @@
 
 /* Musgo: suave y orgánico. Esquinas muy redondas, barra flotante, cambio con rebote */
 :root[data-style="musgo"] {
+  --pattern: url(/patterns/musgo.svg);
+  --pattern-alpha: 0.4;
+  --pattern-size: 140px;
   --radius: 24px;
   --radius-lg: 30px;
   --bw: 0px;
@@ -188,8 +201,7 @@
   --hero-size: 2.1rem;
   --hero-weight: 700;
   --hero-track: 0.02em;
-  --bg-image: radial-gradient(var(--grid) 1px, transparent 1.5px);
-  --bg-size: 18px 18px;
+  --bg-image: none;
   --tint-mix: 8%;
   --tab-radius: 999px;
   --tab-margin: 0 12px 12px;
@@ -206,6 +218,9 @@
 
 /* Hielo: vidrio esmerilado. Tarjetas translúcidas, fondo difuminado, cambio con desenfoque */
 :root[data-style="hielo"] {
+  --pattern: url(/patterns/hielo.svg);
+  --pattern-alpha: 0.45;
+  --pattern-size: 150px;
   --radius: 18px;
   --radius-lg: 22px;
   --card-edge: color-mix(in srgb, var(--ink) 18%, transparent);
@@ -238,6 +253,9 @@
 
 /* Papel: editorial impreso. Serif en todo, sin tarjetas, reglas finas, la página gira al cambiar */
 :root[data-style="papel"] {
+  --pattern: url(/patterns/papel.svg);
+  --pattern-alpha: 0.6;
+  --pattern-size: 110px;
   --sans: ui-serif, Georgia, "Times New Roman", serif;
   --display: ui-serif, Georgia, "Times New Roman", serif;
   --h-weight: 700;
@@ -274,6 +292,9 @@
 
 /* Arena: juguetón y cercano. Tarjetas muy redondas, sombra de color, cambio con salto */
 :root[data-style="arena"] {
+  --pattern: url(/patterns/arena.svg);
+  --pattern-alpha: 0.6;
+  --pattern-size: 130px;
   --radius: 22px;
   --radius-lg: 28px;
   --bw: 0px;
@@ -309,6 +330,9 @@
 
 /* Neón: tablero de neón. Bordes que brillan, horizonte de rejilla, cambio con parpadeo */
 :root[data-style="neon"] {
+  --pattern: url(/patterns/neon.svg);
+  --pattern-alpha: 0.5;
+  --pattern-size: 160px;
   --radius: 3px;
   --radius-lg: 6px;
   --bw: 1px;
@@ -335,6 +359,9 @@
 
 /* Medianoche: lujo nocturno. Títulos en serif, viñeta oscura, cambio lento con zoom suave */
 :root[data-style="medianoche"] {
+  --pattern: url(/patterns/medianoche.svg);
+  --pattern-alpha: 0.45;
+  --pattern-size: 200px;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: ui-serif, "Iowan Old Style", Georgia, serif;
   --radius: 6px;
@@ -370,6 +397,9 @@
 
 /* Bosque: calmo y ordenado. Puntos de fondo, filo de color a la izquierda, cambio que baja */
 :root[data-style="bosque"] {
+  --pattern: url(/patterns/bosque.svg);
+  --pattern-alpha: 0.35;
+  --pattern-size: 150px;
   --radius: 10px;
   --radius-lg: 12px;
   --bw: 1px;
@@ -384,8 +414,7 @@
   --hero-size: 1.9rem;
   --hero-weight: 700;
   --hero-track: -0.01em;
-  --bg-image: radial-gradient(var(--grid) 1.2px, transparent 1.4px);
-  --bg-size: 22px 22px;
+  --bg-image: none;
   --tint-mix: 6%;
   --tab-bg: var(--glass);
   --tab-edge: var(--rule);
@@ -399,6 +428,9 @@
 
 /* Tinta: mínimo monocromo. Sin color decorativo, cifras en monoespaciada, cambio seco */
 :root[data-style="tinta"] {
+  --pattern: url(/patterns/tinta.svg);
+  --pattern-alpha: 0.3;
+  --pattern-size: 96px;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --radius: 0px;
@@ -433,6 +465,14 @@
 }
 
 /* ---------- base de componentes (leen las variables) ---------- */
+/* Capa del dibujo de fondo: queda detrás del contenido y no recibe toques */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--accent); opacity: var(--pattern-alpha);
+  -webkit-mask-image: var(--pattern); mask-image: var(--pattern);
+  -webkit-mask-repeat: repeat; mask-repeat: repeat;
+  -webkit-mask-size: var(--pattern-size); mask-size: var(--pattern-size);
+}
 * { box-sizing: border-box; }
 html { -webkit-tap-highlight-color: transparent; }
 body {
