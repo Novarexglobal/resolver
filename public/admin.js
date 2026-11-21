@@ -1,5 +1,5 @@
 import { loadVisual, applyVisual, DEFAULT_VISUAL } from './visual.js';
-import { LOGOS, STYLES, logoMarkup } from './brand.js';
+import { ACCENT_COLORS, LOGOS, STYLES, logoMarkup } from './brand.js';
 
 const $ = (id) => document.getElementById(id);
 const state = { config: null, user: null, focusGroupId: '' };
@@ -901,7 +901,6 @@ function visualCard(pick) {
       },
       el('span', { class: 'choice-name', text: s.name }),
       el('span', { class: 'choice-desc', text: s.desc }),
-      el('span', { class: 'swatches' }, el('i', { style: `background:${s.tint}` }), el('i', { style: `background:${s.accent}` })),
     )));
     logoGrid.replaceChildren(...LOGOS.map((l) => {
       const mark = el('span', { class: 'logo-mark' });
@@ -920,12 +919,33 @@ function visualCard(pick) {
       );
     }));
   };
+  const accentGrid = el('div', { class: 'swatch-grid', role: 'group', 'aria-label': 'Color de acento' });
+  const accentPicker = el('input', {
+    type: 'color',
+    value: pick.accent,
+    'aria-label': 'Otro color',
+    oninput: (e) => { pick.accent = e.target.value; applyVisual({ ...pick }); paintAccent(); },
+  });
+  const paintAccent = () => {
+    accentGrid.replaceChildren(...ACCENT_COLORS.map((hex) => el('button', {
+      type: 'button',
+      class: 'swatch',
+      style: `--sw:${hex}`,
+      'aria-label': `Color ${hex}`,
+      'aria-pressed': String(pick.accent.toLowerCase() === hex),
+      onclick: () => { pick.accent = hex; applyVisual({ ...pick }); paintAccent(); accentPicker.value = hex; },
+    })));
+  };
   paint();
+  paintAccent();
   return card(
-    'Estilo visual y logo',
-    el('p', { class: 'muted', text: 'Lo que elijas aquí es el mismo para todas las personas al guardar. Al tocar una opción cambia la vista previa de este panel; guarda para aplicarlo a la app.' }),
+    'Estilo visual, color y logo',
+    el('p', { class: 'muted', text: 'Lo que elijas aquí es el mismo para todas las personas al guardar. Cada estilo funciona con cualquier color. Al tocar una opción cambia la vista previa de este panel; guarda para aplicarlo a la app.' }),
     el('h3', { text: 'Estilo' }),
     styleGrid,
+    el('h3', { text: 'Color de acento' }),
+    accentGrid,
+    el('div', { class: 'accent-custom' }, accentPicker, el('span', { class: 'muted', text: 'Otro color' })),
     el('h3', { text: 'Logo principal' }),
     logoGrid,
   );
@@ -945,7 +965,7 @@ async function renderSettings() {
     text: 'Guardar configuración',
     onclick: async () => {
       try {
-        await api('/api/admin/settings', { method: 'PATCH', body: { announcement: announcement.value.trim(), default_days: Number(days.value), visual_style: pick.style, visual_logo: pick.logo } });
+        await api('/api/admin/settings', { method: 'PATCH', body: { announcement: announcement.value.trim(), default_days: Number(days.value), visual_style: pick.style, visual_logo: pick.logo, visual_accent: pick.accent } });
         state.config = await api('/api/config');
         toast('Configuración guardada.');
       } catch (err) {

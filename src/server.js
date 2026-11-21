@@ -56,7 +56,7 @@ import {
 import { sendMail } from './mail.js';
 import { MODULE_INFO, ABOUT } from './info.js';
 import { buildOpenApi } from './openapi.js';
-import { STYLE_IDS, LOGO_IDS, normalizeVisual } from './visual.js';
+import { STYLE_IDS, LOGO_IDS, ACCENT_RE, normalizeVisual } from './visual.js';
 
 const MAX_RESULTS = 200;
 const GROUP_STATUSES = ['activo', 'pausado'];
@@ -892,6 +892,10 @@ export function createApp(store, options = {}) {
     if (body.visual_logo !== undefined) {
       if (!LOGO_IDS.includes(body.visual_logo)) throw new HttpError(400, 'Logo no válido.');
       patch.visual_logo = body.visual_logo;
+    }
+    if (body.visual_accent !== undefined) {
+      if (!ACCENT_RE.test(String(body.visual_accent))) throw new HttpError(400, 'Color no válido.');
+      patch.visual_accent = String(body.visual_accent).toLowerCase();
     }
     const updated = store.update('settings', settings().id, patch);
     ctx.json(200, { settings: updated });

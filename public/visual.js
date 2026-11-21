@@ -1,12 +1,25 @@
-// Aplica el estilo visual y el logo que eligió el superadministrador. Vale para la app y para el panel.
+// Aplica el estilo, el logo y el color de acento que eligió el superadministrador. Vale para la app y para el panel.
 import { logoMarkup } from './brand.js';
 
-export const DEFAULT_VISUAL = { style: 'cabina', logo: 'hexagono' };
+export const DEFAULT_VISUAL = { style: 'cabina', logo: 'hexagono', accent: '#3ee8ff' };
 
-// Pone el estilo en la raíz y dibuja el logo en cada hueco [data-logo] ("hero" anima el trazo al entrar)
+// Texto legible sobre el acento: oscuro si el color es claro, blanco si es oscuro
+export function onAccentFor(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.55 ? '#04121a' : '#ffffff';
+}
+
+// Pone el estilo y el acento en la raíz y dibuja el logo en cada hueco [data-logo] ("hero" anima el trazo al entrar)
 export function applyVisual(visual) {
   const v = { ...DEFAULT_VISUAL, ...(visual || {}) };
-  document.documentElement.setAttribute('data-style', v.style);
+  const root = document.documentElement;
+  root.setAttribute('data-style', v.style);
+  root.style.setProperty('--accent', v.accent);
+  root.style.setProperty('--on-accent', onAccentFor(v.accent));
   document.querySelectorAll('[data-logo]').forEach((slot) => {
     slot.innerHTML = logoMarkup(v.logo, { animated: slot.dataset.logo === 'hero' });
   });

@@ -9,7 +9,8 @@ import { createApp } from '../src/server.js';
 import { ROLES, hashPassword } from '../src/auth.js';
 import { config } from '../src/config.js';
 import { STYLE_IDS, LOGO_IDS, DEFAULT_VISUAL, normalizeVisual } from '../src/visual.js';
-import { LOGOS, STYLES, logoMarkup } from '../public/brand.js';
+import { ACCENT_COLORS, LOGOS, STYLES, logoMarkup } from '../public/brand.js';
+import { onAccentFor } from '../public/visual.js';
 
 // El servidor y el navegador deben conocer exactamente los mismos estilos y logos
 test('los identificadores de estilo y logo coinciden entre servidor y navegador', () => {
@@ -37,8 +38,20 @@ test('un logo desconocido cae en el hexágono y no rompe la página', () => {
 
 test('normalizeVisual usa valores válidos o los de por defecto', () => {
   assert.deepEqual(normalizeVisual({}), DEFAULT_VISUAL);
-  assert.deepEqual(normalizeVisual({ visual_style: 'neon', visual_logo: 'radar' }), { style: 'neon', logo: 'radar' });
-  assert.deepEqual(normalizeVisual({ visual_style: 'inventado', visual_logo: 'otro' }), DEFAULT_VISUAL);
+  assert.deepEqual(normalizeVisual({ visual_style: 'neon', visual_logo: 'radar', visual_accent: '#FF4FD8' }), { style: 'neon', logo: 'radar', accent: '#ff4fd8' });
+  assert.deepEqual(normalizeVisual({ visual_style: 'inventado', visual_logo: 'otro', visual_accent: 'rojo' }), DEFAULT_VISUAL);
+});
+
+test('el acento por defecto es un color hexadecimal válido y cada color de muestra lo es', () => {
+  assert.match(DEFAULT_VISUAL.accent, /^#[0-9a-f]{6}$/);
+  for (const hex of ACCENT_COLORS) assert.match(hex, /^#[0-9a-f]{6}$/, hex);
+});
+
+test('el texto sobre el acento se lee: oscuro en colores claros, blanco en oscuros', () => {
+  assert.equal(onAccentFor('#ffd23f'), '#04121a');
+  assert.equal(onAccentFor('#3ee8ff'), '#04121a');
+  assert.equal(onAccentFor('#1f3a8a'), '#ffffff');
+  assert.equal(onAccentFor('#1f5a3d'), '#ffffff');
 });
 
 // ---------- API ----------
@@ -96,5 +109,21 @@ test('solo el superadministrador cambia el estilo y el logo, y se aplican a todo
   assert.equal(ok.status, 200);
 
   const publicView = await call('GET', '/api/config');
-  assert.deepEqual(publicView.json.visual, { style: 'neon', logo: 'radar' });
+  assert.equal(publicView.json.visual.style, 'neon');
+  assert.equal(publicView.json.visual.logo, 'radar');
+});
+
+test('el color de acento se valida y se guarda en minúsculas; cualquier estilo acepta cualquier color', async () => {
+  const bad = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_accent: 'rojo' } });
+  assert.equal(bad.status, 400);
+  const badHex = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_accent: '#12345' } });
+  assert.equal(badHex.status, 400);
+
+  for (const style of ['papel', 'tinta']) {
+    const ok = await call('PATCH', '/api/admin/settings', { cookie: superCookie, body: { visual_style: style, visual_accent: '#1F5A3D' } });
+    assert.equal(ok.status, 200);
+    const view = await call('GET', '/api/config');
+    assert.deepEqual(view.json.visual, { style, logo: 'radar', accent: '#1f5a3d' });
+  }
+  assert.ok(ACCENT_COLORS.includes('#1f5a3d'));
 });

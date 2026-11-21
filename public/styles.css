@@ -1,28 +1,77 @@
-/* RESOLVER · «cabina de mercado»
-   Grafito con rejilla casi invisible, filos finos y cifras alineadas.
-   Tres capas: MODO (oscuro o claro, lo elige cada persona en Cuenta),
-   ESTILO (acento, tinte, forma y tipografía, lo elige el superadministrador y aplica a todos)
-   y LOGO (el dibujo de la marca, también elegido por el superadministrador).
-   Escala de espaciado: 4 · 8 · 12 · 16 · 24 · 32 px. */
+/* RESOLVER · diez estilos visuales con la misma estructura.
+   Tres capas independientes:
+   - MODO: oscuro o claro, lo elige cada persona en Cuenta.
+   - ESTILO: forma, tipografía, fondo, tarjetas, barra, transición. Lo elige el superadministrador.
+   - ACENTO: cualquier color, elegido aparte. Se pone en la raíz desde public/visual.js.
+   Cada estilo define sus variables en :root[data-style]. Los componentes solo leen variables. */
 
-/* ---------- base: escala, superficies y modo oscuro (por defecto) ---------- */
+/* ---------- base (neutra, sin estilo elegido) ---------- */
 :root {
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
-  --radius: 6px;
-  --radius-lg: 10px;
   --sans: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   --display: ui-sans-serif, system-ui, -apple-system, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  /* Fondos del modo: base, panel y campo. El tinte del estilo se mezcla encima */
+  /* Forma */
+  --radius: 6px;
+  --radius-lg: 10px;
+  --bw: 1px;
+  --card-edge: var(--rule);
+  --card-bg: var(--panel);
+  --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --card-blur: none;
+  --card-pad: var(--s4);
+  --input-edge: var(--rule);
+  --btn-radius: var(--radius);
+  --btn-shadow: none;
+  --btn-bg: var(--accent);
+  --btn-fg: var(--on-accent);
+  --btn-hover: brightness(1.06);
+  --btn-press: scale(0.975);
+
+  /* Títulos y cabecera */
+  --h-weight: 650;
+  --h-track: -0.01em;
+  --h-shadow: none;
+  --hero-align: left;
+  --hero-mx: 0;
+  --hero-size: 1.85rem;
+  --hero-weight: 700;
+  --hero-track: 0.3em;
+
+  /* Fondo, barras */
+  --bg-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  --bg-size: 32px 32px;
+  --tint-mix: 6%;
+  --topbar-bg: var(--glass);
+  --tab-bg: var(--glass);
+  --tab-radius: 0px;
+  --tab-margin: 0;
+  --tab-edge: var(--rule);
+  --tab-shadow: none;
+
+  /* Movimiento: cambio de módulo y dibujo de la marca */
+  --view-dur: 280ms;
+  --view-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --from-o: 0;
+  --from-x: 10px;
+  --from-y: 0px;
+  --from-s: 1;
+  --from-r: 0deg;
+  --from-blur: 0px;
+  --from-clip: inset(-100% -100% -100% -100%);
+  --draw-dur: 0.7s;
+
+  /* Superficies: el acento se mezcla en el fondo con --tint-mix */
   --base: #070b11;
   --base-2: #0c141d;
   --base-3: #111d2a;
-  --tint: #3ee8ff;
   --accent: #3ee8ff;
-  --paper: color-mix(in srgb, var(--base) 94%, var(--tint));
-  --panel: color-mix(in srgb, var(--base-2) 92%, var(--tint));
-  --raise: color-mix(in srgb, var(--base-3) 92%, var(--tint));
+  --on-accent: #04121a;
+  --paper: color-mix(in srgb, var(--base) calc(100% - var(--tint-mix)), var(--accent));
+  --panel: color-mix(in srgb, var(--base-2) calc(100% - var(--tint-mix)), var(--accent));
+  --raise: color-mix(in srgb, var(--base-3) calc(100% - var(--tint-mix)), var(--accent));
   --ink: #e6f1ff;
   --ink-2: #7b8ca6;
   --rule: color-mix(in srgb, var(--ink) 12%, var(--paper));
@@ -35,7 +84,6 @@
   --accent-text: var(--accent);
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
   --accent-line: color-mix(in srgb, var(--accent) 45%, transparent);
-  --on-accent: #04121a;
   --glass: color-mix(in srgb, var(--paper) 82%, transparent);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
@@ -78,17 +126,313 @@
   --shadow: 0 12px 40px rgba(11, 22, 36, 0.12);
 }
 
-/* ---------- estilos visuales (uno activo para todas las personas) ---------- */
-:root[data-style="brasa"]      { --tint: #ff7a3d; --accent: #ff7a3d; }
-:root[data-style="musgo"]      { --tint: #7fe3a1; --accent: #7fe3a1; }
-:root[data-style="hielo"]      { --tint: #6d8dff; --accent: #6d8dff; }
-:root[data-style="papel"]      { --tint: #c9a46a; --accent: #e0a458; --display: ui-serif, Georgia, "Times New Roman", serif; --radius: 2px; --radius-lg: 4px; --grid: transparent; }
-:root[data-style="arena"]      { --tint: #e8b98a; --accent: #ef8a5c; --display: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; --radius: 16px; --radius-lg: 22px; }
-:root[data-style="neon"]       { --tint: #7b2cff; --accent: #ff4fd8; --radius: 4px; --radius-lg: 8px; }
-:root[data-style="medianoche"] { --tint: #1f3a8a; --accent: #f2c14e; --radius: 8px; --radius-lg: 12px; }
-:root[data-style="bosque"]     { --tint: #1f5a3d; --accent: #b8f25c; }
-:root[data-style="tinta"]      { --tint: #9aa3ad; --accent: #ffd23f; --radius: 0px; --radius-lg: 0px; --grid: transparent; }
+/* ---------- los diez estilos ---------- */
 
+/* Cabina: panel técnico. Filos finos, rejilla y el cambio de módulo se barre de izquierda a derecha */
+:root[data-style="cabina"] {
+  --view-dur: 420ms;
+  --view-ease: cubic-bezier(0.6, 0, 0.2, 1);
+  --from-o: 1;
+  --from-x: 0px;
+  --from-clip: inset(0 100% 0 0);
+}
+
+/* Brasa: bloque audaz. Bordes gruesos, sombra dura, rayas de fondo y cambio a golpe */
+:root[data-style="brasa"] {
+  --radius: 0px;
+  --radius-lg: 0px;
+  --bw: 2px;
+  --card-edge: var(--ink);
+  --card-shadow: 6px 6px 0 var(--accent);
+  --card-pad: var(--s4);
+  --input-edge: var(--ink);
+  --btn-radius: 0px;
+  --btn-shadow: 3px 3px 0 var(--ink);
+  --btn-press: translate(3px, 3px);
+  --btn-hover: none;
+  --h-weight: 850;
+  --h-track: -0.03em;
+  --hero-size: 2.3rem;
+  --hero-weight: 900;
+  --hero-track: -0.02em;
+  --bg-image: repeating-linear-gradient(135deg, var(--grid) 0 2px, transparent 2px 16px);
+  --bg-size: auto;
+  --tint-mix: 10%;
+  --topbar-bg: var(--paper);
+  --tab-bg: var(--paper);
+  --tab-radius: 0px;
+  --tab-edge: var(--ink);
+  --view-dur: 240ms;
+  --view-ease: steps(4, end);
+  --from-o: 1;
+  --from-x: 56px;
+}
+
+/* Musgo: suave y orgánico. Esquinas muy redondas, barra flotante, cambio con rebote */
+:root[data-style="musgo"] {
+  --radius: 24px;
+  --radius-lg: 30px;
+  --bw: 0px;
+  --card-edge: transparent;
+  --card-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.5);
+  --card-pad: var(--s5);
+  --btn-radius: 999px;
+  --btn-shadow: 0 8px 20px -8px var(--accent);
+  --btn-press: scale(0.94);
+  --h-weight: 700;
+  --h-track: -0.02em;
+  --sans: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+  --display: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+  --hero-align: center;
+  --hero-mx: auto;
+  --hero-size: 2.1rem;
+  --hero-weight: 700;
+  --hero-track: 0.02em;
+  --bg-image: radial-gradient(var(--grid) 1px, transparent 1.5px);
+  --bg-size: 18px 18px;
+  --tint-mix: 8%;
+  --tab-radius: 999px;
+  --tab-margin: 0 12px 12px;
+  --tab-edge: var(--rule);
+  --tab-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.45);
+  --view-dur: 480ms;
+  --view-ease: cubic-bezier(0.34, 1.3, 0.5, 1);
+  --from-o: 0;
+  --from-x: 0px;
+  --from-y: 14px;
+  --from-s: 0.96;
+  --from-blur: 6px;
+}
+
+/* Hielo: vidrio esmerilado. Tarjetas translúcidas, fondo difuminado, cambio con desenfoque */
+:root[data-style="hielo"] {
+  --radius: 18px;
+  --radius-lg: 22px;
+  --card-edge: color-mix(in srgb, var(--ink) 18%, transparent);
+  --card-bg: color-mix(in srgb, var(--base-2) 45%, transparent);
+  --card-blur: blur(18px) saturate(150%);
+  --card-shadow: 0 16px 40px -18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --input-edge: color-mix(in srgb, var(--ink) 18%, transparent);
+  --btn-radius: 14px;
+  --btn-shadow: 0 8px 22px -10px var(--accent);
+  --h-weight: 600;
+  --h-track: -0.01em;
+  --hero-size: 1.9rem;
+  --hero-weight: 300;
+  --hero-track: 0.12em;
+  --bg-image: radial-gradient(60% 45% at 15% 0%, var(--accent-soft), transparent 70%), radial-gradient(50% 40% at 100% 90%, var(--accent-soft), transparent 70%);
+  --bg-size: auto;
+  --tint-mix: 14%;
+  --topbar-bg: color-mix(in srgb, var(--base-2) 40%, transparent);
+  --tab-bg: color-mix(in srgb, var(--base-2) 40%, transparent);
+  --tab-edge: color-mix(in srgb, var(--ink) 16%, transparent);
+  --view-dur: 500ms;
+  --view-ease: ease-out;
+  --from-o: 0;
+  --from-x: 0px;
+  --from-y: 6px;
+  --from-s: 1.02;
+  --from-blur: 14px;
+  --draw-dur: 1s;
+}
+
+/* Papel: editorial impreso. Serif en todo, sin tarjetas, reglas finas, la página gira al cambiar */
+:root[data-style="papel"] {
+  --sans: ui-serif, Georgia, "Times New Roman", serif;
+  --display: ui-serif, Georgia, "Times New Roman", serif;
+  --h-weight: 700;
+  --h-track: 0em;
+  --radius: 0px;
+  --radius-lg: 0px;
+  --bw: 0px;
+  --card-edge: transparent;
+  --card-bg: transparent;
+  --card-shadow: none;
+  --card-pad: var(--s3) 0;
+  --input-edge: var(--ink);
+  --btn-radius: 0px;
+  --btn-shadow: none;
+  --btn-hover: none;
+  --hero-align: left;
+  --hero-size: 2.4rem;
+  --hero-weight: 700;
+  --hero-track: 0em;
+  --bg-image: none;
+  --tint-mix: 4%;
+  --topbar-bg: var(--paper);
+  --tab-bg: var(--paper);
+  --tab-radius: 0px;
+  --tab-edge: var(--ink);
+  --view-dur: 560ms;
+  --view-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --from-o: 0;
+  --from-x: 0px;
+  --from-y: 14px;
+  --from-r: 9deg;
+  --draw-dur: 1.2s;
+}
+
+/* Arena: juguetón y cercano. Tarjetas muy redondas, sombra de color, cambio con salto */
+:root[data-style="arena"] {
+  --radius: 22px;
+  --radius-lg: 28px;
+  --bw: 0px;
+  --card-edge: transparent;
+  --card-shadow: 0 14px 30px -14px var(--accent);
+  --card-pad: var(--s5);
+  --btn-radius: 18px;
+  --btn-shadow: 0 8px 18px -8px var(--accent);
+  --btn-press: scale(0.9);
+  --h-weight: 800;
+  --h-track: -0.02em;
+  --sans: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  --display: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  --hero-align: center;
+  --hero-mx: auto;
+  --hero-size: 2.3rem;
+  --hero-weight: 800;
+  --hero-track: -0.01em;
+  --bg-image: none;
+  --tint-mix: 14%;
+  --tab-bg: var(--panel);
+  --tab-radius: 24px;
+  --tab-margin: 0 10px 10px;
+  --tab-edge: transparent;
+  --tab-shadow: 0 10px 30px -10px var(--accent);
+  --view-dur: 460ms;
+  --view-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --from-o: 0;
+  --from-x: 0px;
+  --from-y: 18px;
+  --from-s: 0.9;
+}
+
+/* Neón: tablero de neón. Bordes que brillan, horizonte de rejilla, cambio con parpadeo */
+:root[data-style="neon"] {
+  --radius: 3px;
+  --radius-lg: 6px;
+  --bw: 1px;
+  --card-edge: var(--accent);
+  --card-shadow: 0 0 0 1px var(--accent-soft), 0 0 26px -8px var(--accent);
+  --input-edge: var(--accent-line);
+  --btn-radius: 3px;
+  --btn-shadow: 0 0 18px -4px var(--accent);
+  --btn-hover: brightness(1.15);
+  --h-weight: 700;
+  --h-track: 0.04em;
+  --h-shadow: 0 0 14px var(--accent-line);
+  --hero-size: 2rem;
+  --hero-weight: 800;
+  --hero-track: 0.18em;
+  --bg-image: radial-gradient(70% 50% at 50% 0%, var(--accent-soft), transparent 70%), linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  --bg-size: auto, 48px 48px, 48px 48px;
+  --tint-mix: 8%;
+  --tab-bg: var(--glass);
+  --tab-edge: var(--accent-line);
+  --tab-shadow: 0 -6px 24px -10px var(--accent);
+  --draw-dur: 0.9s;
+}
+
+/* Medianoche: lujo nocturno. Títulos en serif, viñeta oscura, cambio lento con zoom suave */
+:root[data-style="medianoche"] {
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: ui-serif, "Iowan Old Style", Georgia, serif;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --bw: 1px;
+  --card-edge: var(--accent-line);
+  --card-shadow: inset 0 0 0 1px var(--accent-soft), 0 30px 60px -36px #000;
+  --card-pad: var(--s5);
+  --btn-radius: 4px;
+  --btn-shadow: none;
+  --btn-hover: brightness(1.04);
+  --h-weight: 500;
+  --h-track: 0.01em;
+  --hero-align: center;
+  --hero-mx: auto;
+  --hero-size: 2.1rem;
+  --hero-weight: 500;
+  --hero-track: 0.22em;
+  --bg-image: radial-gradient(120% 70% at 50% 0%, var(--accent-soft), transparent 60%);
+  --bg-size: auto;
+  --tint-mix: 4%;
+  --topbar-bg: var(--base);
+  --tab-bg: var(--base);
+  --tab-edge: var(--accent-line);
+  --view-dur: 760ms;
+  --view-ease: cubic-bezier(0.3, 0, 0.2, 1);
+  --from-o: 0;
+  --from-x: 0px;
+  --from-s: 1.03;
+  --from-blur: 4px;
+  --draw-dur: 1.4s;
+}
+
+/* Bosque: calmo y ordenado. Puntos de fondo, filo de color a la izquierda, cambio que baja */
+:root[data-style="bosque"] {
+  --radius: 10px;
+  --radius-lg: 12px;
+  --bw: 1px;
+  --card-edge: var(--rule);
+  --card-shadow: none;
+  --card-pad: var(--s4);
+  --btn-radius: 10px;
+  --btn-shadow: none;
+  --btn-press: scale(0.98);
+  --h-weight: 700;
+  --h-track: -0.02em;
+  --hero-size: 1.9rem;
+  --hero-weight: 700;
+  --hero-track: -0.01em;
+  --bg-image: radial-gradient(var(--grid) 1.2px, transparent 1.4px);
+  --bg-size: 22px 22px;
+  --tint-mix: 6%;
+  --tab-bg: var(--glass);
+  --tab-edge: var(--rule);
+  --tab-radius: 0px;
+  --view-dur: 380ms;
+  --view-ease: cubic-bezier(0.25, 0.8, 0.3, 1);
+  --from-o: 0;
+  --from-x: 0px;
+  --from-y: -18px;
+}
+
+/* Tinta: mínimo monocromo. Sin color decorativo, cifras en monoespaciada, cambio seco */
+:root[data-style="tinta"] {
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 0px;
+  --radius-lg: 0px;
+  --bw: 1px;
+  --card-edge: var(--ink);
+  --card-bg: var(--paper);
+  --card-shadow: none;
+  --input-edge: var(--ink);
+  --btn-radius: 0px;
+  --btn-shadow: none;
+  --btn-bg: var(--ink);
+  --btn-fg: var(--paper);
+  --btn-hover: none;
+  --btn-press: scale(1);
+  --h-weight: 600;
+  --h-track: 0em;
+  --hero-size: 1.6rem;
+  --hero-weight: 600;
+  --hero-track: 0.04em;
+  --bg-image: none;
+  --tint-mix: 0%;
+  --topbar-bg: var(--paper);
+  --tab-bg: var(--paper);
+  --tab-radius: 0px;
+  --tab-edge: var(--ink);
+  --view-dur: 120ms;
+  --view-ease: linear;
+  --from-o: 0;
+  --from-x: 0px;
+  --draw-dur: 0.4s;
+}
+
+/* ---------- base de componentes (leen las variables) ---------- */
 * { box-sizing: border-box; }
 html { -webkit-tap-highlight-color: transparent; }
 body {
@@ -98,17 +442,15 @@ body {
   line-height: 1.5;
   color: var(--ink);
   background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 32px 32px;
+  background-image: var(--bg-image);
+  background-size: var(--bg-size);
   background-attachment: fixed;
   -webkit-text-size-adjust: 100%;
   font-variant-numeric: lining-nums;
 }
 h1, h2, h3 { margin: 0 0 var(--s2); line-height: 1.2; color: var(--ink); }
-h2 { font-family: var(--display); font-weight: 650; font-size: 1.25rem; letter-spacing: -0.01em; }
-h3 { font-size: 1rem; font-weight: 650; }
+h2 { font-family: var(--display); font-weight: var(--h-weight); font-size: 1.25rem; letter-spacing: var(--h-track); text-shadow: var(--h-shadow); }
+h3 { font-size: 1rem; font-weight: var(--h-weight); }
 a { color: var(--accent-text); text-underline-offset: 3px; }
 img { max-width: 100%; display: block; }
 .muted { color: var(--ink-2); }
@@ -121,8 +463,8 @@ img { max-width: 100%; display: block; }
   position: sticky; top: 0; z-index: 10;
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s3);
   padding: var(--s3) var(--s4);
-  background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--rule);
+  background: var(--topbar-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: var(--bw) solid var(--card-edge);
 }
 .brand { font-family: var(--display); font-weight: 700; letter-spacing: 0.02em; color: var(--ink); }
 .brand small { display: block; font-family: var(--sans); font-weight: 400; color: var(--ink-2); letter-spacing: 0; font-size: 0.75rem; margin-top: 1px; }
@@ -135,8 +477,9 @@ main { max-width: 1040px; margin: 0 auto; padding: var(--s4) var(--s4) 104px; }
 
 /* ---------- paneles ---------- */
 .card {
-  background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius-lg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03); padding: var(--s4); margin-bottom: var(--s4);
+  background: var(--card-bg); border: var(--bw) solid var(--card-edge); border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow); backdrop-filter: var(--card-blur); -webkit-backdrop-filter: var(--card-blur);
+  padding: var(--card-pad); margin-bottom: var(--s4);
 }
 
 /* Cifras: rejilla de filos finos. El fondo de la franja es el filo; cada celda lo tapa con su superficie */
@@ -147,26 +490,29 @@ main { max-width: 1040px; margin: 0 auto; padding: var(--s4) var(--s4) 104px; }
 .grid-stats > .stat,
 .grid-stats > .card.stat { background: var(--panel); border: 0; border-radius: 0; box-shadow: none; margin: 0; padding: var(--s3) var(--s4); }
 .stat .label { color: var(--ink-2); font-size: 0.78rem; }
-.stat .value { font-family: var(--display); font-size: 1.5rem; font-weight: 650; margin-top: 2px; font-variant-numeric: lining-nums tabular-nums; }
+.stat .value { font-family: var(--display); font-size: 1.5rem; font-weight: var(--h-weight); margin-top: 2px; font-variant-numeric: lining-nums tabular-nums; }
 .stat .sub { color: var(--ink-2); font-size: 0.8rem; }
 
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--s3); align-items: end; }
 label { display: block; font-size: 0.8rem; color: var(--ink-2); margin-bottom: var(--s1); font-weight: 550; }
 input, select, textarea, button {
   font: inherit; width: 100%; padding: 10px 12px; border-radius: var(--radius);
-  border: 1px solid var(--rule); background: var(--raise); color: var(--ink);
+  border: var(--bw) solid var(--input-edge); background: var(--raise); color: var(--ink);
   transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease), transform 120ms var(--ease), background-color 160ms;
 }
-textarea { min-height: 120px; resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+textarea { min-height: 120px; resize: vertical; font-family: var(--mono); font-size: 0.85rem; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .search-input { font-size: 1.05rem; padding: 14px var(--s4); }
 
 /* ---------- botones ---------- */
-button { cursor: pointer; font-weight: 600; background: var(--accent); color: var(--on-accent); border-color: transparent; }
-button:hover { filter: brightness(1.06); }
-button:active:not(:disabled) { transform: scale(0.975); }
+button {
+  cursor: pointer; font-weight: 600; background: var(--btn-bg); color: var(--btn-fg); border-radius: var(--btn-radius);
+  box-shadow: var(--btn-shadow); border-color: transparent;
+}
+button:hover { filter: var(--btn-hover); }
+button:active:not(:disabled) { transform: var(--btn-press); }
 button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 4px var(--accent-line); }
-button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+button.secondary { background: transparent; color: var(--ink); border: var(--bw) solid var(--card-edge); box-shadow: none; }
 button.secondary:hover { background: var(--accent-soft); filter: none; border-color: var(--accent-line); }
 button.danger { background: var(--bad); color: #fff; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -176,7 +522,7 @@ button.small { width: auto; padding: 6px 10px; font-size: 0.85rem; }
 .spacer { flex: 1; }
 
 /* ---------- etiquetas y avisos ---------- */
-.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: var(--accent-soft); color: var(--accent-text); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: min(4px, var(--radius)); font-size: 0.75rem; font-weight: 600; background: var(--accent-soft); color: var(--accent-text); }
 .badge.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
 .badge.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
 .badge.bad { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
@@ -204,7 +550,7 @@ button.small { width: auto; padding: 6px 10px; font-size: 0.85rem; }
 }
 .post .thumb { width: 88px; height: 88px; aspect-ratio: 1 / 1; object-fit: cover; background: var(--raise); border-radius: var(--radius); border: 1px solid var(--rule); }
 .post .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.post .price { font-family: var(--display); font-size: 1.2rem; font-weight: 650; font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
+.post .price { font-family: var(--display); font-size: 1.2rem; font-weight: var(--h-weight); font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
 .post .meta { font-size: 0.8rem; color: var(--ink-2); }
 .post .desc { font-size: 0.88rem; color: var(--ink-2); overflow-wrap: anywhere; }
 .post .seller { font-size: 0.8rem; color: var(--ink); }
@@ -237,13 +583,13 @@ button.small { width: auto; padding: 6px 10px; font-size: 0.85rem; }
 .tabbar {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
   display: grid; grid-template-columns: repeat(6, 1fr);
-  background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border-top: 1px solid var(--rule);
+  background: var(--tab-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: var(--bw) solid var(--tab-edge); border-radius: var(--tab-radius); box-shadow: var(--tab-shadow); margin: var(--tab-margin);
   padding: var(--s1) var(--s1) calc(var(--s1) + env(safe-area-inset-bottom));
 }
 .tabbar button {
   position: relative; background: transparent; color: var(--ink-2); font-weight: 600; font-size: 0.72rem;
-  padding: 10px 2px 8px; border: 0; border-radius: 0; box-shadow: none; transform: none;
+  padding: 10px 2px 8px; border: 0; border-radius: var(--btn-radius); box-shadow: none; transform: none;
 }
 .tabbar button::before {
   content: ""; position: absolute; top: 0; left: 30%; right: 30%; height: 2px; border-radius: 2px;
@@ -260,21 +606,21 @@ button.small { width: auto; padding: 6px 10px; font-size: 0.85rem; }
 .auth-tabs button.secondary.active { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent-line); }
 #auth .card { border-top: 1px solid var(--rule); box-shadow: inset 0 2px 0 var(--accent), var(--shadow); }
 
-.hero { position: relative; padding: var(--s4) 0 var(--s5); }
+.hero { position: relative; padding: var(--s4) 0 var(--s5); text-align: var(--hero-align); }
 .hero::before {
   content: ""; position: absolute; left: calc(var(--s4) * -1); right: calc(var(--s4) * -1); top: calc(var(--s4) * -1); height: 200px; pointer-events: none;
   background: radial-gradient(70% 90% at 10% 0%, var(--accent-soft), transparent 70%);
 }
-.hero-mark { position: relative; width: 84px; height: 84px; color: var(--ink); display: block; margin: 0 0 var(--s4); }
+.hero-mark { position: relative; width: 84px; height: 84px; color: var(--ink); display: block; margin: 0 var(--hero-mx) var(--s4); }
 .hero-mark .node { filter: drop-shadow(0 0 6px var(--accent)); }
 .hero-word {
-  position: relative; font-family: var(--display); font-weight: 700; font-size: 1.85rem; letter-spacing: 0.3em;
-  line-height: 1; margin: 0 -0.3em 0 0; color: var(--ink);
+  position: relative; font-family: var(--display); font-weight: var(--hero-weight); font-size: var(--hero-size); letter-spacing: var(--hero-track);
+  line-height: 1; margin: 0; color: var(--ink);
 }
 .hero-tag { position: relative; margin: var(--s3) 0 0; color: var(--ink-2); font-size: 0.95rem; }
 
 /* Trazos de la marca: se dibujan una vez al cargar, en secuencia; el retraso de cada trazo va en línea */
-.draw { fill: none; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-in 0.7s var(--ease) forwards; }
+.draw { fill: none; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-in var(--draw-dur) var(--ease) forwards; }
 .dot-end { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: dot-in 0.45s var(--ease) forwards; }
 @keyframes draw-in { to { stroke-dashoffset: 0; } }
 @keyframes dot-in { to { transform: scale(1); } }
@@ -285,7 +631,7 @@ button.link:hover { filter: none; }
 button.info-btn {
   width: 22px; height: 22px; min-width: 22px; padding: 0; border-radius: 50%;
   background: transparent; color: var(--accent-text); border: 1px solid var(--accent-line);
-  font-weight: 700; font-size: 0.8rem; line-height: 1; flex-shrink: 0;
+  font-weight: 700; font-size: 0.8rem; line-height: 1; flex-shrink: 0; box-shadow: none;
 }
 .modal {
   position: fixed; inset: 0; z-index: 40; background: rgba(3, 7, 12, 0.6);
@@ -306,9 +652,26 @@ button.info-btn {
 .info-block h4 { margin: var(--s4) 0 var(--s1); font-size: 0.9rem; }
 .info-block p { margin: 0; }
 
-/* Cambio de módulo: deslizamiento corto con fundido, en cualquier navegador */
-.view-in { animation: view-in 280ms var(--ease) both; }
-@keyframes view-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+/* Cambio de módulo: cada estilo define su propio movimiento con las variables --from-* */
+.view-in { animation: view-in var(--view-dur) var(--view-ease) both; }
+@keyframes view-in {
+  from {
+    opacity: var(--from-o);
+    transform: translate(var(--from-x), var(--from-y)) scale(var(--from-s)) rotateX(var(--from-r));
+    filter: blur(var(--from-blur));
+    clip-path: var(--from-clip);
+  }
+  to { opacity: 1; transform: none; filter: none; clip-path: inset(-100% -100% -100% -100%); }
+}
+:root[data-style="neon"] .view-in { animation: neon-on var(--view-dur) steps(1, end) both; }
+@keyframes neon-on {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  20% { opacity: 0.25; }
+  34% { opacity: 1; }
+  46% { opacity: 0.5; }
+  60%, 100% { opacity: 1; }
+}
 
 .toast {
   position: fixed; left: 50%; bottom: 96px; z-index: 30; max-width: calc(100% - 32px);
@@ -326,7 +689,7 @@ th { color: var(--ink-2); font-weight: 600; font-size: 0.8rem; }
 td { font-variant-numeric: tabular-nums; }
 .table-wrap { overflow-x: auto; }
 
-/* Elección de estilo y logo (superadministrador) */
+/* Elección de estilo, acento y logo (superadministrador) */
 .choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s2); margin: var(--s3) 0 var(--s4); }
 .choice {
   display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: var(--s3);
@@ -337,17 +700,23 @@ td { font-variant-numeric: tabular-nums; }
 .choice[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .choice .choice-name { font-weight: 650; font-size: 0.95rem; }
 .choice .choice-desc { font-size: 0.8rem; color: var(--ink-2); font-weight: 400; line-height: 1.35; }
-.choice .swatches { display: flex; gap: 6px; margin-top: 2px; }
-.choice .swatches i { width: 16px; height: 16px; border-radius: 50%; display: block; box-shadow: 0 0 0 1px var(--rule); }
 .choice.logo { align-items: center; justify-content: center; min-height: 128px; }
-.choice.logo svg { width: 76px; height: 76px; color: var(--ink); display: block; overflow: visible; }
+.choice.logo .logo-mark { display: block; width: 76px; height: 76px; color: var(--ink); }
+.choice.logo .logo-mark svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .choice.logo .choice-name { font-size: 0.8rem; color: var(--ink-2); font-weight: 600; margin-top: 6px; }
-.choice.logo .choice-name { margin-top: 6px; }
+.swatch-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: var(--s2); margin: var(--s3) 0; }
+.swatch-grid button.swatch {
+  width: 100%; aspect-ratio: 1 / 1; min-width: 0; padding: 0; border-radius: 50%; background: var(--sw);
+  border: 1px solid var(--rule); box-shadow: none;
+}
+.swatch-grid button.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
+.accent-custom { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); }
+.accent-custom input[type="color"] { width: 56px; height: 40px; padding: 2px; flex: 0 0 56px; }
 
 /* ---------- escritorio ---------- */
 @media (min-width: 900px) {
   .tabbar {
-    position: static; margin: 0 0 var(--s4); border: 0; border-bottom: 1px solid var(--rule); background: transparent; backdrop-filter: none;
+    position: static; margin: 0 0 var(--s4); border: 0; border-bottom: 1px solid var(--rule); background: transparent; backdrop-filter: none; box-shadow: none; border-radius: 0;
     grid-template-columns: repeat(6, auto); justify-content: start; padding: 0;
   }
   .tabbar button { padding: 12px var(--s4) 10px; font-size: 0.85rem; }
@@ -374,10 +743,56 @@ button.small.active { box-shadow: 0 0 0 2px var(--accent-line); }
 
 /* ---------- «Más» ---------- */
 #mas-bar { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s4); }
-#mas-bar button { width: auto; background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+#mas-bar button { width: auto; background: transparent; color: var(--ink); border: var(--bw) solid var(--card-edge); }
 #mas-bar button:hover { background: var(--accent-soft); filter: none; }
 #mas-bar button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 select[aria-label] { max-width: 100%; }
+
+/* ---------- reglas propias de cada estilo ---------- */
+
+/* Cabina: rejilla y los filos de la barra en el acento */
+:root[data-style="cabina"] .tabbar button.active::before { box-shadow: 0 0 12px var(--accent); }
+
+/* Brasa: la pestaña activa es un bloque de color; sin barra fina */
+:root[data-style="brasa"] .card:hover { transform: translate(-2px, -2px); }
+:root[data-style="brasa"] .tabbar button.active { background: var(--accent); color: var(--on-accent); }
+:root[data-style="brasa"] .tabbar button.active::before { display: none; }
+:root[data-style="brasa"] .tabbar button { border: 2px solid transparent; }
+
+/* Musgo: la pestaña activa es una píldora suave */
+:root[data-style="musgo"] .tabbar button { border-radius: 999px; margin: 4px 2px; }
+:root[data-style="musgo"] .tabbar button.active { background: var(--accent-soft); }
+:root[data-style="musgo"] .tabbar button.active::before { display: none; }
+
+/* Hielo: los títulos son finos y la tarjeta refleja el acento en el borde superior */
+:root[data-style="hielo"] .card { border-top-color: var(--accent-line); }
+
+/* Papel: página impresa. Sin tarjetas, cada bloque abre con una regla fina; títulos en cursiva */
+:root[data-style="papel"] main { perspective: 1000px; }
+:root[data-style="papel"] .card { border-width: 2px 0 0; border-style: solid; border-color: var(--ink) transparent transparent; }
+:root[data-style="papel"] h2 { font-style: italic; }
+:root[data-style="papel"] .tabbar button.active::before { background: var(--ink); box-shadow: none; }
+
+/* Arena: la pestaña activa es una píldora con el acento lleno */
+:root[data-style="arena"] .tabbar button { border-radius: 18px; margin: 6px 4px; }
+:root[data-style="arena"] .tabbar button.active { background: var(--accent); color: var(--on-accent); }
+:root[data-style="arena"] .tabbar button.active::before { display: none; }
+
+/* Neón: títulos y cifras brillan; la pestaña activa se enciende */
+:root[data-style="neon"] .hero-word { color: var(--accent); text-shadow: 0 0 18px var(--accent-line); }
+:root[data-style="neon"] .tabbar button.active { text-shadow: 0 0 10px var(--accent); }
+
+/* Medianoche: filo dorado bajo la cabecera */
+:root[data-style="medianoche"] .hero { border-bottom: 1px solid var(--accent-line); padding-bottom: var(--s5); }
+
+/* Bosque: la tarjeta tiene un filo de color a la izquierda */
+:root[data-style="bosque"] .card { border-left: 4px solid var(--accent); }
+
+/* Tinta: sin color decorativo; las cifras en monoespaciada y la pestaña activa subrayada */
+:root[data-style="tinta"] .stat .value,
+:root[data-style="tinta"] .post .price { font-family: var(--mono); }
+:root[data-style="tinta"] .tabbar button.active { text-decoration: underline; text-underline-offset: 6px; }
+:root[data-style="tinta"] .tabbar button.active::before { display: none; }
 
 /* ---------- movimiento reducido ---------- */
 @media (prefers-reduced-motion: reduce) {

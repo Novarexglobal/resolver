@@ -82,18 +82,26 @@ export const LOGOS = [
   ] },
 ];
 
-// Estilos: el nombre, la descripción y los dos colores de muestra. Los valores completos están en styles.css
+// Estilos: forma, tipografía, fondo, tarjetas, barra y transición. El color lo elige el superadministrador aparte.
 export const STYLES = [
-  { id: 'cabina', name: 'Cabina', desc: 'Grafito con cian eléctrico. El estilo original.', tint: '#3ee8ff', accent: '#3ee8ff' },
-  { id: 'brasa', name: 'Brasa', desc: 'Grafito con naranja encendido.', tint: '#ff7a3d', accent: '#ff7a3d' },
-  { id: 'musgo', name: 'Musgo', desc: 'Negro verdoso con verde menta.', tint: '#7fe3a1', accent: '#7fe3a1' },
-  { id: 'hielo', name: 'Hielo', desc: 'Azul acero con azul eléctrico.', tint: '#6d8dff', accent: '#6d8dff' },
-  { id: 'papel', name: 'Papel', desc: 'Tono cálido, títulos con serif y filos rectos. Serio y editorial.', tint: '#c9a46a', accent: '#e0a458' },
-  { id: 'arena', name: 'Arena', desc: 'Esquinas redondeadas y coral suave. Cercano y relajado.', tint: '#e8b98a', accent: '#ef8a5c' },
-  { id: 'neon', name: 'Neón', desc: 'Violeta profundo con magenta brillante.', tint: '#7b2cff', accent: '#ff4fd8' },
-  { id: 'medianoche', name: 'Medianoche', desc: 'Azul marino con dorado.', tint: '#1f3a8a', accent: '#f2c14e' },
-  { id: 'bosque', name: 'Bosque', desc: 'Verde profundo con lima.', tint: '#1f5a3d', accent: '#b8f25c' },
-  { id: 'tinta', name: 'Tinta', desc: 'Casi monocromo, filos rectos y un solo acento ámbar.', tint: '#9aa3ad', accent: '#ffd23f' },
+  { id: 'cabina', name: 'Cabina', desc: 'Panel técnico: filos finos, rejilla, la pantalla se barre al cambiar de módulo.' },
+  { id: 'brasa', name: 'Brasa', desc: 'Bloque audaz: bordes gruesos, sombras duras, cambio de módulo a golpe.' },
+  { id: 'musgo', name: 'Musgo', desc: 'Suave y orgánico: esquinas muy redondas, barra flotante, cambio con rebote.' },
+  { id: 'hielo', name: 'Hielo', desc: 'Vidrio esmerilado: tarjetas translúcidas, fondo difuminado, cambio con desenfoque.' },
+  { id: 'papel', name: 'Papel', desc: 'Editorial impreso: serif en todo, sin tarjetas, reglas finas, página que gira.' },
+  { id: 'arena', name: 'Arena', desc: 'Juguetón y cercano: tarjetas muy redondeadas, sombra de color, cambio con salto.' },
+  { id: 'neon', name: 'Neón', desc: 'Tablero de neón: bordes que brillan, horizonte de rejilla, cambio con parpadeo.' },
+  { id: 'medianoche', name: 'Medianoche', desc: 'Lujo nocturno: títulos en serif, viñeta oscura, cambio lento con zoom suave.' },
+  { id: 'bosque', name: 'Bosque', desc: 'Calmo y ordenado: puntos de fondo, filo de color a la izquierda, cambio que baja.' },
+  { id: 'tinta', name: 'Tinta', desc: 'Mínimo monocromo: sin color decorativo, cifras en monoespaciada, cambio seco.' },
+];
+
+// Colores de acento sugeridos. Cualquier estilo puede usar cualquiera, y también un color libre.
+export const ACCENT_COLORS = [
+  '#3ee8ff', '#ff7a3d', '#7fe3a1', '#6d8dff',
+  '#c9a46a', '#e0a458', '#e8b98a', '#ef8a5c',
+  '#7b2cff', '#ff4fd8', '#1f3a8a', '#f2c14e',
+  '#1f5a3d', '#b8f25c', '#9aa3ad', '#ffd23f',
 ];
 
 const NS = 'http://www.w3.org/2000/svg';
